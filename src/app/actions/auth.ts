@@ -9,7 +9,8 @@ export async function login(formData: FormData) {
 
   if (email === "karyabahan123@gmail.com" && password === "karyabahan33") {
     // Session Cookie (otomatis hilang saat browser/tab ditutup)
-    cookies().set("auth", "true", { 
+    const cookieStore = await cookies();
+    cookieStore.set("auth", "true", { 
       httpOnly: true, 
       secure: process.env.NODE_ENV === "production",
       // maxAge DIHAPUS agar menjadi Session Cookie
@@ -21,6 +22,7 @@ export async function login(formData: FormData) {
 }
 
 export async function logout() {
-  cookies().delete("auth");
+  const cookieStore = await cookies();
+  cookieStore.delete("auth");
   redirect("/login");
 }
