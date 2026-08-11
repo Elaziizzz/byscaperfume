@@ -17,18 +17,15 @@ export function Sidebar() {
           <Link href="/reports" className="text-lg font-medium hover:underline underline-offset-4 decoration-2">
             Reports
           </Link>
+          <Link href="/trash" className="text-lg font-medium hover:underline underline-offset-4 decoration-2 text-red-600">
+            Tong Sampah
+          </Link>
+          <Link href="/settings" className="text-lg font-medium hover:underline underline-offset-4 decoration-2">
+            Settings
+          </Link>
         </nav>
       </div>
       <div>
-        <form action={async () => {
-          "use server";
-          const { logout } = await import("@/app/actions/auth");
-          await logout();
-        }}>
-          <button type="submit" className="text-sm font-bold text-red-600 hover:underline uppercase mb-4 text-left w-full">
-            Log Out
-          </button>
-        </form>
         <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
           v1.0.0 &copy; {new Date().getFullYear()}
         </div>

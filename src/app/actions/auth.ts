@@ -8,11 +8,11 @@ export async function login(formData: FormData) {
   const password = formData.get("password");
 
   if (email === "karyabahan123@gmail.com" && password === "karyabahan33") {
-    // Set cookie valid for 7 days
+    // Session Cookie (otomatis hilang saat browser/tab ditutup)
     cookies().set("auth", "true", { 
       httpOnly: true, 
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 7 
+      // maxAge DIHAPUS agar menjadi Session Cookie
     });
     return { success: true };
   }

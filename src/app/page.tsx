@@ -19,6 +19,7 @@ type Transaction = {
   quantity: number;
   total_price: number;
   created_at: string;
+  deleted_at: string | null;
   materials?: {
     name: string;
   };
@@ -87,18 +88,20 @@ export default function POSDashboard() {
   }
 
   async function fetchTransactions() {
-    // Fetch recent for the table
+    // Fetch recent for the table (only active ones)
     const { data: recent } = await supabase
       .from("transactions")
       .select("*, materials(name)")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(10);
     if (recent) setTransactions(recent);
 
-    // Fetch all for summary
+    // Fetch all for summary (only active ones)
     const { data: all } = await supabase
       .from("transactions")
-      .select("type, total_price");
+      .select("type, total_price")
+      .is("deleted_at", null);
     if (all) setAllTransactions(all as Transaction[]);
   }
 
@@ -137,6 +140,21 @@ export default function POSDashboard() {
     } else {
       console.error(error);
       alert("Error processing transaction");
+    }
+  }
+
+  async function softDeleteTransaction(id: string) {
+    if (!confirm("Buang transaksi ini ke tong sampah?")) return;
+    setLoading(true);
+    const { error } = await supabase
+      .from("transactions")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+      
+    setLoading(false);
+    if (error) {
+      console.error(error);
+      alert("Error menghapus transaksi: " + error.message);
     }
   }
 
@@ -327,12 +345,13 @@ export default function POSDashboard() {
                     <th className="p-3 border-b-2 border-black font-bold">Material</th>
                     <th className="p-3 border-b-2 border-black font-bold text-right">Qty</th>
                     <th className="p-3 border-b-2 border-black font-bold text-right">Total (Rp)</th>
+                    <th className="p-3 border-b-2 border-black font-bold text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {transactions.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-gray-500 italic">No transactions found.</td>
+                      <td colSpan={6} className="p-8 text-center text-gray-500 italic">No active transactions found.</td>
                     </tr>
                   ) : (
                     transactions.map((t) => (
@@ -355,6 +374,14 @@ export default function POSDashboard() {
                         </td>
                         <td className={`p-3 border-b border-gray-200 text-right font-mono font-bold ${t.type === 'IN' ? 'text-red-600' : 'text-green-600'}`}>
                           {t.type === 'IN' ? '-' : '+'} {t.total_price.toLocaleString("id-ID")}
+                        </td>
+                        <td className="p-3 border-b border-gray-200 text-center">
+                          <button 
+                            onClick={() => softDeleteTransaction(t.id)}
+                            className="text-xs border border-red-500 text-red-600 px-2 py-1 hover:bg-red-600 hover:text-white transition-colors"
+                          >
+                            Hapus
+                          </button>
                         </td>
                       </tr>
                     ))
