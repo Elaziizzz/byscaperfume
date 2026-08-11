@@ -4,16 +4,27 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Package, Plus, Trash2, Edit2, Check, X } from "lucide-react";
 
+// Helper function to read cookie on client side safely
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift();
+  return null;
+}
+
 type Material = {
   id: string;
   name: string;
   current_stock: number;
   price: number;
+  store: string;
 };
 
 export default function MaterialsPage() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeStore, setActiveStore] = useState("");
 
   // Form states for creating a new material
   const [newName, setNewName] = useState("");
@@ -27,12 +38,18 @@ export default function MaterialsPage() {
   const [editStock, setEditStock] = useState("");
 
   useEffect(() => {
-    fetchMaterials();
+    const store = getCookie("store") || "karya_bahan";
+    setActiveStore(store);
+    fetchMaterials(store);
   }, []);
 
-  async function fetchMaterials() {
+  async function fetchMaterials(store: string) {
     setLoading(true);
-    const { data } = await supabase.from("materials").select("*").order("name");
+    const { data } = await supabase
+      .from("materials")
+      .select("*")
+      .eq("store", store)
+      .order("name");
     if (data) setMaterials(data);
     setLoading(false);
   }
@@ -43,7 +60,12 @@ export default function MaterialsPage() {
 
     setIsCreating(true);
     const { error } = await supabase.from("materials").insert([
-      { name: newName, current_stock: Number(newStock), price: Number(newPrice) }
+      { 
+        name: newName, 
+        current_stock: Number(newStock), 
+        price: Number(newPrice),
+        store: activeStore 
+      }
     ]);
 
     setIsCreating(false);

@@ -5,6 +5,15 @@ import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import { PlusCircle, ShoppingCart, ArrowDownRight, ArrowUpRight, Wallet } from "lucide-react";
 
+// Helper function to read cookie on client side safely
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift();
+  return null;
+}
+
 type Material = {
   id: string;
   name: string;
@@ -38,9 +47,12 @@ export default function POSDashboard() {
   const [initialBudget, setInitialBudget] = useState<number>(0);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [tempBudget, setTempBudget] = useState("");
+  const [activeStore, setActiveStore] = useState<string>("");
 
   useEffect(() => {
-    fetchData();
+    const store = getCookie("store") || "karya_bahan";
+    setActiveStore(store);
+    fetchData(store);
 
     // Subscribe to real-time changes
     const materialSubscription = supabase
@@ -53,14 +65,16 @@ export default function POSDashboard() {
     const transactionSubscription = supabase
       .channel("public:transactions")
       .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => {
-        fetchTransactions();
+        fetchTransactions(store);
       })
       .subscribe();
 
-    // Load initial budget from localStorage
-    const savedBudget = localStorage.getItem("karyabahan_initial_budget");
+    // Load initial budget from localStorage (per store)
+    const savedBudget = localStorage.getItem(`karyabahan_initial_budget_${store}`);
     if (savedBudget) {
       setInitialBudget(Number(savedBudget));
+    } else {
+      setInitialBudget(0);
     }
 
     return () => {
@@ -73,25 +87,26 @@ export default function POSDashboard() {
     e.preventDefault();
     const val = Number(tempBudget);
     setInitialBudget(val);
-    localStorage.setItem("karyabahan_initial_budget", val.toString());
+    localStorage.setItem(`karyabahan_initial_budget_${activeStore}`, val.toString());
     setIsEditingBudget(false);
   }
 
-  async function fetchData() {
-    await fetchMaterials();
-    await fetchTransactions();
+  async function fetchData(store: string) {
+    await fetchMaterials(store);
+    await fetchTransactions(store);
   }
 
-  async function fetchMaterials() {
-    const { data } = await supabase.from("materials").select("*").order("name");
+  async function fetchMaterials(store: string) {
+    const { data } = await supabase.from("materials").select("*").eq("store", store).order("name");
     if (data) setMaterials(data);
   }
 
-  async function fetchTransactions() {
+  async function fetchTransactions(store: string) {
     // Fetch recent for the table (only active ones)
     const { data: recent } = await supabase
       .from("transactions")
       .select("*, materials(name)")
+      .eq("store", store)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(10);
@@ -101,6 +116,7 @@ export default function POSDashboard() {
     const { data: all } = await supabase
       .from("transactions")
       .select("type, total_price")
+      .eq("store", store)
       .is("deleted_at", null);
     if (all) setAllTransactions(all as Transaction[]);
   }
@@ -129,6 +145,7 @@ export default function POSDashboard() {
         type: transactionType,
         quantity: Number(quantity),
         total_price: finalPrice,
+        store: activeStore
       },
     ]);
 

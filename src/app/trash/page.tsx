@@ -5,6 +5,15 @@ import { supabase } from "@/lib/supabase";
 import { format, differenceInDays } from "date-fns";
 import { Trash2, RefreshCcw, AlertTriangle } from "lucide-react";
 
+// Helper function to read cookie on client side safely
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift();
+  return null;
+}
+
 type Transaction = {
   id: string;
   material_id: string;
@@ -21,12 +30,15 @@ type Transaction = {
 export default function TrashPage() {
   const [trashed, setTrashed] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeStore, setActiveStore] = useState("");
 
   useEffect(() => {
-    fetchAndCleanTrash();
+    const store = getCookie("store") || "karya_bahan";
+    setActiveStore(store);
+    fetchAndCleanTrash(store);
   }, []);
 
-  async function fetchAndCleanTrash() {
+  async function fetchAndCleanTrash(store: string) {
     setLoading(true);
     
     // 1. Auto-delete items older than 10 days
@@ -34,9 +46,11 @@ export default function TrashPage() {
     tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
     
     // We execute a delete query for anything where deleted_at < tenDaysAgo
+    // We only clean for the active store to avoid cross-store interference
     await supabase
       .from("transactions")
       .delete()
+      .eq("store", store)
       .not("deleted_at", "is", null)
       .lt("deleted_at", tenDaysAgo.toISOString());
 
@@ -44,6 +58,7 @@ export default function TrashPage() {
     const { data } = await supabase
       .from("transactions")
       .select("*, materials(name)")
+      .eq("store", store)
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false });
 
@@ -62,7 +77,7 @@ export default function TrashPage() {
     if (error) {
       alert("Error restore: " + error.message);
     } else {
-      fetchAndCleanTrash(); // Refresh list
+      fetchAndCleanTrash(activeStore); // Refresh list
     }
   }
 
@@ -77,7 +92,7 @@ export default function TrashPage() {
     if (error) {
       alert("Error hapus permanen: " + error.message);
     } else {
-      fetchAndCleanTrash(); // Refresh list
+      fetchAndCleanTrash(activeStore); // Refresh list
     }
   }
 
