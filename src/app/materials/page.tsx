@@ -109,7 +109,6 @@ export default function MaterialsPage() {
       </div>
 
       {/* CREATE FORM */}
-      <p className="text-xs text-red-500 mb-4">DEBUG URL: {process.env.NEXT_PUBLIC_SUPABASE_URL || "KOSONG/TIDAK ADA"}</p>
       <div className="border border-black p-6 bg-gray-50">
         <h2 className="text-lg font-bold uppercase mb-4">Add New Material</h2>
         <form onSubmit={handleCreate} className="flex flex-col md:flex-row gap-4 items-end">
