@@ -17,6 +17,7 @@ type Material = {
   id: string;
   name: string;
   current_stock: number;
+  cost_price: number;
   price: number;
   store: string;
 };
@@ -29,11 +30,13 @@ export default function MaterialsPage() {
   // Form states for creating a new material
   const [newName, setNewName] = useState("");
   const [newStock, setNewStock] = useState("");
+  const [newCostPrice, setNewCostPrice] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editCostPrice, setEditCostPrice] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editStock, setEditStock] = useState("");
 
@@ -56,13 +59,14 @@ export default function MaterialsPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!newName || newPrice === "" || Number(newPrice) < 0 || newStock === "" || Number(newStock) < 0) return;
+    if (!newName || newPrice === "" || Number(newPrice) < 0 || newCostPrice === "" || Number(newCostPrice) < 0 || newStock === "" || Number(newStock) < 0) return;
 
     setIsCreating(true);
     const { error } = await supabase.from("materials").insert([
       { 
         name: newName, 
         current_stock: Number(newStock), 
+        cost_price: Number(newCostPrice),
         price: Number(newPrice),
         store: activeStore 
       }
@@ -72,6 +76,7 @@ export default function MaterialsPage() {
     if (!error) {
       setNewName("");
       setNewStock("");
+      setNewCostPrice("");
       setNewPrice("");
       fetchMaterials(activeStore); // Reload list
     } else {
@@ -95,6 +100,7 @@ export default function MaterialsPage() {
   function startEditing(m: Material) {
     setEditingId(m.id);
     setEditName(m.name);
+    setEditCostPrice(String(m.cost_price));
     setEditPrice(String(m.price));
     setEditStock(String(m.current_stock));
   }
@@ -104,11 +110,11 @@ export default function MaterialsPage() {
   }
 
   async function saveEditing(id: string) {
-    if (!editName || editPrice === "" || Number(editPrice) < 0 || editStock === "" || Number(editStock) < 0) return;
+    if (!editName || editPrice === "" || Number(editPrice) < 0 || editCostPrice === "" || Number(editCostPrice) < 0 || editStock === "" || Number(editStock) < 0) return;
 
     const { error } = await supabase
       .from("materials")
-      .update({ name: editName, price: Number(editPrice), current_stock: Number(editStock) })
+      .update({ name: editName, cost_price: Number(editCostPrice), price: Number(editPrice), current_stock: Number(editStock) })
       .eq("id", id);
 
     if (!error) {
@@ -158,7 +164,19 @@ export default function MaterialsPage() {
             />
           </div>
           <div className="w-full md:w-48">
-            <label className="block text-sm font-bold mb-1 uppercase">Base Sell Price</label>
+            <label className="block text-sm font-bold mb-1 uppercase">Harga Modal / Pcs</label>
+            <input
+              type="number"
+              min="0"
+              className="w-full border border-black p-2 bg-white focus:outline-none focus:ring-1 focus:ring-black"
+              value={newCostPrice}
+              onChange={(e) => setNewCostPrice(e.target.value.replace(/^0+(?=\d)/, ''))}
+              placeholder="e.g. 100000"
+              required
+            />
+          </div>
+          <div className="w-full md:w-48">
+            <label className="block text-sm font-bold mb-1 uppercase text-green-700">Harga Jual / Pcs</label>
             <input
               type="number"
               min="0"
@@ -184,11 +202,14 @@ export default function MaterialsPage() {
         <div className="overflow-x-auto border border-black">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead>
-              <tr className="bg-black text-white uppercase tracking-wide">
-                <th className="p-4 font-bold border-r border-gray-700">Material Name</th>
-                <th className="p-4 font-bold border-r border-gray-700 text-right">Current Stock</th>
-                <th className="p-4 font-bold border-r border-gray-700 text-right">Base Price (Rp)</th>
-                <th className="p-4 font-bold text-center">Actions</th>
+              <tr className="bg-black text-white uppercase tracking-wide text-xs">
+                <th className="p-4 font-bold border-r border-gray-700">Nama Barang</th>
+                <th className="p-4 font-bold border-r border-gray-700 text-right">Stok</th>
+                <th className="p-4 font-bold border-r border-gray-700 text-right">H. Modal (Rp)</th>
+                <th className="p-4 font-bold border-r border-gray-700 text-right text-green-400">H. Jual (Rp)</th>
+                <th className="p-4 font-bold border-r border-gray-700 text-right text-blue-400">Total Nilai Stok</th>
+                <th className="p-4 font-bold border-r border-gray-700 text-right text-yellow-400">Potensi Profit</th>
+                <th className="p-4 font-bold text-center">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -232,12 +253,30 @@ export default function MaterialsPage() {
                         <input
                           type="number"
                           className="w-full border border-black p-1 text-right focus:outline-none focus:ring-1 focus:ring-black"
+                          value={editCostPrice}
+                          onChange={(e) => setEditCostPrice(e.target.value.replace(/^0+(?=\d)/, ''))}
+                        />
+                      ) : (
+                        m.cost_price?.toLocaleString("id-ID") || 0
+                      )}
+                    </td>
+                    <td className="p-4 border-r border-black text-right font-mono text-green-700 font-bold">
+                      {editingId === m.id ? (
+                        <input
+                          type="number"
+                          className="w-full border border-black p-1 text-right focus:outline-none focus:ring-1 focus:ring-black"
                           value={editPrice}
                           onChange={(e) => setEditPrice(e.target.value.replace(/^0+(?=\d)/, ''))}
                         />
                       ) : (
                         m.price.toLocaleString("id-ID")
                       )}
+                    </td>
+                    <td className="p-4 border-r border-black text-right font-mono font-bold text-blue-700">
+                      {editingId === m.id ? "-" : (m.current_stock * (m.cost_price || 0)).toLocaleString("id-ID")}
+                    </td>
+                    <td className="p-4 border-r border-black text-right font-mono font-bold text-yellow-600">
+                      {editingId === m.id ? "-" : (m.current_stock * (m.price - (m.cost_price || 0))).toLocaleString("id-ID")}
                     </td>
                     <td className="p-4 text-center">
                       {editingId === m.id ? (

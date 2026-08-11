@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
-import { FileText, Download, Calendar, Trash2 } from "lucide-react";
+import { FileText, Download, Calendar, Trash2, TrendingUp, DollarSign, Package, PiggyBank } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -22,6 +22,7 @@ type Transaction = {
   material_id: string;
   type: 'IN' | 'OUT';
   quantity: number;
+  cost_price: number;
   total_price: number;
   created_at: string;
   deleted_at: string | null;
@@ -31,8 +32,17 @@ type Transaction = {
   };
 };
 
+type Material = {
+  id: string;
+  name: string;
+  current_stock: number;
+  cost_price: number;
+  price: number;
+};
+
 export default function ReportsPage() {
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeStore, setActiveStore] = useState("");
   
@@ -42,19 +52,29 @@ export default function ReportsPage() {
   useEffect(() => {
     const store = getCookie("store") || "karya_bahan";
     setActiveStore(store);
-    fetchTransactions(store);
+    fetchData(store);
   }, []);
 
-  async function fetchTransactions(store: string) {
+  async function fetchData(store: string) {
     setLoading(true);
-    const { data } = await supabase
+    // Fetch Transactions
+    const { data: trx } = await supabase
       .from("transactions")
       .select("*, materials(name)")
       .eq("store", store)
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
     
-    if (data) setAllTransactions(data as Transaction[]);
+    if (trx) setAllTransactions(trx as Transaction[]);
+
+    // Fetch Materials for Asset Calculation
+    const { data: mats } = await supabase
+      .from("materials")
+      .select("*")
+      .eq("store", store);
+    
+    if (mats) setMaterials(mats as Material[]);
+
     setLoading(false);
   }
 
@@ -69,7 +89,7 @@ export default function ReportsPage() {
     if (error) {
       alert("Error menghapus transaksi: " + error.message);
     } else {
-      fetchTransactions(activeStore);
+      fetchData(activeStore);
     }
   }
 
@@ -85,47 +105,66 @@ export default function ReportsPage() {
     return allTransactions.filter(t => format(new Date(t.created_at), "MMMM yyyy") === selectedMonthYear);
   }, [allTransactions, selectedMonthYear]);
 
-  // Calculate totals
-  const totalIn = filteredTransactions.filter(t => t.type === 'IN').reduce((sum, t) => sum + Number(t.total_price), 0);
-  const totalOut = filteredTransactions.filter(t => t.type === 'OUT').reduce((sum, t) => sum + Number(t.total_price), 0);
-  const netTotal = totalOut - totalIn;
+  // Calculations for P&L Dashboard
+  const outTransactions = filteredTransactions.filter(t => t.type === 'OUT');
+  const inTransactions = filteredTransactions.filter(t => t.type === 'IN');
+
+  const totalSalesRevenue = outTransactions.reduce((sum, t) => sum + Number(t.total_price), 0);
+  const totalPurchaseCost = inTransactions.reduce((sum, t) => sum + Number(t.total_price), 0);
+  
+  // COGS (Cost of Goods Sold / Modal Terjual) = sum of (qty * cost_price) for all OUT transactions
+  const costRecovered = outTransactions.reduce((sum, t) => sum + (t.quantity * (t.cost_price || 0)), 0);
+  
+  // Realized Profit = Revenue - COGS
+  const realizedProfit = totalSalesRevenue - costRecovered;
+
+  // Unsold Assets (Sisa Nilai Stok) = sum of (current_stock * cost_price)
+  const totalAssetValue = materials.reduce((sum, m) => sum + (m.current_stock * (m.cost_price || 0)), 0);
+
+  // Potential Profit = sum of (current_stock * (price - cost_price))
+  const potentialProfit = materials.reduce((sum, m) => sum + (m.current_stock * (m.price - (m.cost_price || 0))), 0);
+
 
   const exportPDF = () => {
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
     const storeName = activeStore === 'bysca' ? 'BYSCA (Parfum)' : 'Karya Bahan';
-    doc.text(`${storeName.toUpperCase()} - Transaction Report`, 14, 22);
+    doc.text(`${storeName.toUpperCase()} - P&L Report`, 14, 22);
     
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.text(`Periode: ${selectedMonthYear === 'ALL' ? 'Semua Waktu' : selectedMonthYear}`, 14, 30);
     doc.text(`Dicetak pada: ${format(new Date(), "dd MMM yyyy, HH:mm")}`, 14, 35);
 
-    const tableColumn = ["Tanggal", "Tipe", "Material", "Qty", "Total (Rp)"];
+    const tableColumn = ["Tanggal", "Tipe", "Material", "Qty", "Total (Rp)", "Profit (Rp)"];
     const tableRows: any[] = [];
 
     filteredTransactions.forEach(t => {
       const typeStr = t.type === 'IN' ? 'BELI (IN)' : 'JUAL (OUT)';
       const priceStr = (t.type === 'IN' ? '-' : '+') + t.total_price.toLocaleString("id-ID");
-      
+      const profit = t.type === 'OUT' ? (t.total_price - (t.quantity * (t.cost_price || 0))) : 0;
+      const profitStr = t.type === 'OUT' ? `+${profit.toLocaleString("id-ID")}` : '-';
+
       const rowData = [
         format(new Date(t.created_at), "dd MMM yyyy HH:mm"),
         typeStr,
         t.materials?.name || "Unknown",
         t.quantity.toString(),
-        priceStr
+        priceStr,
+        profitStr
       ];
       tableRows.push(rowData);
     });
 
     // Add empty row for spacing
-    tableRows.push(["", "", "", "", ""]);
+    tableRows.push(["", "", "", "", "", ""]);
     
     // Add Total rows at the bottom
-    tableRows.push(["", "", "", "TOTAL PENJUALAN:", `+${totalOut.toLocaleString("id-ID")}`]);
-    tableRows.push(["", "", "", "TOTAL PEMBELIAN:", `-${totalIn.toLocaleString("id-ID")}`]);
-    tableRows.push(["", "", "", "SALDO BERSIH:", `${netTotal >= 0 ? '+' : ''}${netTotal.toLocaleString("id-ID")}`]);
+    tableRows.push(["", "", "", "TOTAL PENJUALAN:", `+${totalSalesRevenue.toLocaleString("id-ID")}`, ""]);
+    tableRows.push(["", "", "", "MODAL TERJUAL (HPP):", `-${costRecovered.toLocaleString("id-ID")}`, ""]);
+    tableRows.push(["", "", "", "PROFIT BERSIH:", "", `+${realizedProfit.toLocaleString("id-ID")}`]);
+    tableRows.push(["", "", "", "TOTAL PEMBELIAN:", `-${totalPurchaseCost.toLocaleString("id-ID")}`, ""]);
 
     autoTable(doc, {
       head: [tableColumn],
@@ -136,49 +175,55 @@ export default function ReportsPage() {
       headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
       didParseCell: function (data) {
         // Make total rows bold
-        if (data.row.index >= tableRows.length - 3 && data.row.index <= tableRows.length - 1) {
+        if (data.row.index >= tableRows.length - 4 && data.row.index <= tableRows.length - 1) {
           data.cell.styles.fontStyle = 'bold';
-          if (data.column.index === 4) { // Color the amounts
-             if (data.row.index === tableRows.length - 3) data.cell.styles.textColor = [0, 128, 0]; // Penjualan (Green)
-             if (data.row.index === tableRows.length - 2) data.cell.styles.textColor = [200, 0, 0]; // Pembelian (Red)
+          if (data.column.index === 4 || data.column.index === 5) { // Color the amounts
+             if (data.row.index === tableRows.length - 4) data.cell.styles.textColor = [0, 128, 0]; // Penjualan (Green)
+             if (data.row.index === tableRows.length - 3) data.cell.styles.textColor = [200, 0, 0]; // HPP (Red)
+             if (data.row.index === tableRows.length - 2) data.cell.styles.textColor = [0, 128, 0]; // Profit (Green)
           }
         }
       }
     });
 
-    doc.save(`Laporan_${activeStore}_${selectedMonthYear.replace(' ', '_')}.pdf`);
+    doc.save(`Laporan_PnL_${activeStore}_${selectedMonthYear.replace(' ', '_')}.pdf`);
   };
 
   const exportExcel = () => {
-    const worksheetData: any[] = filteredTransactions.map(t => ({
-      "Tanggal": format(new Date(t.created_at), "yyyy-MM-dd HH:mm:ss"),
-      "Tipe": t.type === 'IN' ? 'BELI (IN)' : 'JUAL (OUT)',
-      "Material": t.materials?.name || "Unknown",
-      "Quantity": t.quantity,
-      "Total Price (Rp)": t.type === 'IN' ? -t.total_price : t.total_price
-    }));
+    const worksheetData: any[] = filteredTransactions.map(t => {
+      const profit = t.type === 'OUT' ? (t.total_price - (t.quantity * (t.cost_price || 0))) : 0;
+      return {
+        "Tanggal": format(new Date(t.created_at), "yyyy-MM-dd HH:mm:ss"),
+        "Tipe": t.type === 'IN' ? 'BELI (IN)' : 'JUAL (OUT)',
+        "Material": t.materials?.name || "Unknown",
+        "Quantity": t.quantity,
+        "Harga Modal Satuan (Rp)": t.cost_price || 0,
+        "Total Price (Rp)": t.type === 'IN' ? -t.total_price : t.total_price,
+        "Profit (Rp)": profit
+      };
+    });
 
     // Add Total rows
-    worksheetData.push({ "Tanggal": "", "Tipe": "", "Material": "", "Quantity": "TOTAL JUAL", "Total Price (Rp)": totalOut as any });
-    worksheetData.push({ "Tanggal": "", "Tipe": "", "Material": "", "Quantity": "TOTAL BELI", "Total Price (Rp)": -totalIn as any });
-    worksheetData.push({ "Tanggal": "", "Tipe": "", "Material": "", "Quantity": "SALDO BERSIH", "Total Price (Rp)": netTotal as any });
+    worksheetData.push({ "Tanggal": "", "Tipe": "", "Material": "", "Quantity": "TOTAL JUAL", "Total Price (Rp)": totalSalesRevenue as any, "Profit (Rp)": "" });
+    worksheetData.push({ "Tanggal": "", "Tipe": "", "Material": "", "Quantity": "MODAL TERJUAL", "Total Price (Rp)": -costRecovered as any, "Profit (Rp)": "" });
+    worksheetData.push({ "Tanggal": "", "Tipe": "", "Material": "", "Quantity": "PROFIT BERSIH", "Total Price (Rp)": "", "Profit (Rp)": realizedProfit as any });
 
     const worksheet = XLSX.utils.json_to_sheet(worksheetData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan PnL");
     
-    XLSX.writeFile(workbook, `Laporan_${activeStore}_${selectedMonthYear.replace(' ', '_')}.xlsx`);
+    XLSX.writeFile(workbook, `Laporan_PnL_${activeStore}_${selectedMonthYear.replace(' ', '_')}.xlsx`);
   };
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 border-b-2 border-black pb-4">
         <div>
           <h1 className="text-3xl font-bold uppercase flex items-center gap-2">
             <FileText className="w-8 h-8" />
-            Laporan Keuangan
+            Laporan Keuangan & Laba Rugi
           </h1>
-          <p className="text-gray-500 mt-2">Riwayat transaksi bersih (tanpa sampah) dan ekspor laporan bulanan.</p>
+          <p className="text-gray-500 mt-2">Riwayat transaksi, perputaran modal, dan keuntungan bersih.</p>
         </div>
         <div className="flex gap-4">
           <button 
@@ -218,61 +263,120 @@ export default function ReportsPage() {
         </div>
       </div>
 
+      {/* P&L DASHBOARD */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Modal Kembali */}
+        <div className="border border-black p-4 bg-white relative overflow-hidden group hover:bg-gray-50 transition-colors">
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-blue-600" />
+            Modal Terjual (HPP)
+          </div>
+          <div className="text-2xl font-black text-blue-800">
+            Rp {costRecovered.toLocaleString("id-ID")}
+          </div>
+          <div className="text-[10px] text-gray-400 mt-2 uppercase">Uang modal yang sudah balik dari hasil jualan</div>
+        </div>
+        
+        {/* Card 2: Keuntungan Bersih */}
+        <div className="border border-black p-4 bg-black text-white relative overflow-hidden group">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-green-400" />
+            Keuntungan Bersih
+          </div>
+          <div className="text-2xl font-black text-green-400">
+            +Rp {realizedProfit.toLocaleString("id-ID")}
+          </div>
+          <div className="text-[10px] text-gray-400 mt-2 uppercase">Profit murni yang masuk kantong (Omzet - Modal)</div>
+        </div>
+
+        {/* Card 3: Nilai Stok Mengendap */}
+        <div className="border border-black p-4 bg-white relative overflow-hidden group hover:bg-gray-50 transition-colors">
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <Package className="w-4 h-4 text-purple-600" />
+            Sisa Nilai Stok (Aset)
+          </div>
+          <div className="text-2xl font-black text-purple-800">
+            Rp {totalAssetValue.toLocaleString("id-ID")}
+          </div>
+          <div className="text-[10px] text-gray-400 mt-2 uppercase">Total uang modal Anda yang nyangkut di barang</div>
+        </div>
+
+        {/* Card 4: Potensi Keuntungan */}
+        <div className="border border-black p-4 bg-white relative overflow-hidden group hover:bg-gray-50 transition-colors">
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <PiggyBank className="w-4 h-4 text-yellow-600" />
+            Potensi Keuntungan
+          </div>
+          <div className="text-2xl font-black text-yellow-600">
+            +Rp {potentialProfit.toLocaleString("id-ID")}
+          </div>
+          <div className="text-[10px] text-gray-400 mt-2 uppercase">Bila semua sisa stok saat ini laku terjual</div>
+        </div>
+      </div>
+
+      {/* Transaction Table */}
       <div className="border border-black bg-white">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead>
-              <tr className="bg-black text-white uppercase tracking-wide">
+              <tr className="bg-black text-white uppercase tracking-wide text-xs">
                 <th className="p-4 font-bold">Tanggal</th>
                 <th className="p-4 font-bold">Tipe</th>
                 <th className="p-4 font-bold">Material</th>
                 <th className="p-4 font-bold text-right">Qty</th>
-                <th className="p-4 font-bold text-right">Total (Rp)</th>
+                <th className="p-4 font-bold text-right">Total Transaksi (Rp)</th>
+                <th className="p-4 font-bold text-right text-green-400">Profit Bersih (Rp)</th>
                 <th className="p-4 font-bold text-center">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-500 italic">Memuat laporan...</td>
+                  <td colSpan={7} className="p-8 text-center text-gray-500 italic">Memuat laporan...</td>
                 </tr>
               ) : filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-500 italic">Tidak ada transaksi di periode ini.</td>
+                  <td colSpan={7} className="p-8 text-center text-gray-500 italic">Tidak ada transaksi di periode ini.</td>
                 </tr>
               ) : (
-                filteredTransactions.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-50 border-b border-gray-200">
-                    <td className="p-4">
-                      {format(new Date(t.created_at), "dd MMM yyyy, HH:mm")}
-                    </td>
-                    <td className="p-4">
-                      {t.type === 'IN' ? (
-                        <span className="bg-red-100 text-red-800 px-2 py-1 text-xs font-bold rounded-sm border border-red-200">BELI (IN)</span>
-                      ) : (
-                        <span className="bg-green-100 text-green-800 px-2 py-1 text-xs font-bold rounded-sm border border-green-200">JUAL (OUT)</span>
-                      )}
-                    </td>
-                    <td className="p-4 font-medium">
-                      {t.materials?.name || "Unknown"}
-                    </td>
-                    <td className="p-4 text-right font-mono">
-                      {t.quantity}
-                    </td>
-                    <td className={`p-4 text-right font-mono font-bold ${t.type === 'IN' ? 'text-red-600' : 'text-green-600'}`}>
-                      {t.type === 'IN' ? '-' : '+'} {t.total_price.toLocaleString("id-ID")}
-                    </td>
-                    <td className="p-4 text-center">
-                      <button 
-                        onClick={() => softDeleteTransaction(t.id)}
-                        className="text-gray-400 hover:text-red-600 transition-colors"
-                        title="Buang ke Tong Sampah"
-                      >
-                        <Trash2 className="w-5 h-5 mx-auto" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                filteredTransactions.map((t) => {
+                  const profit = t.type === 'OUT' ? (t.total_price - (t.quantity * (t.cost_price || 0))) : 0;
+                  return (
+                    <tr key={t.id} className="hover:bg-gray-50 border-b border-gray-200">
+                      <td className="p-4">
+                        {format(new Date(t.created_at), "dd MMM yyyy, HH:mm")}
+                      </td>
+                      <td className="p-4">
+                        {t.type === 'IN' ? (
+                          <span className="bg-red-100 text-red-800 px-2 py-1 text-xs font-bold rounded-sm border border-red-200">BELI (IN)</span>
+                        ) : (
+                          <span className="bg-green-100 text-green-800 px-2 py-1 text-xs font-bold rounded-sm border border-green-200">JUAL (OUT)</span>
+                        )}
+                      </td>
+                      <td className="p-4 font-medium">
+                        {t.materials?.name || "Unknown"}
+                      </td>
+                      <td className="p-4 text-right font-mono">
+                        {t.quantity}
+                      </td>
+                      <td className={`p-4 text-right font-mono font-bold ${t.type === 'IN' ? 'text-red-600' : 'text-blue-700'}`}>
+                        {t.type === 'IN' ? '-' : '+'} {t.total_price.toLocaleString("id-ID")}
+                      </td>
+                      <td className="p-4 text-right font-mono font-bold text-green-700">
+                        {t.type === 'OUT' ? `+ ${profit.toLocaleString("id-ID")}` : '-'}
+                      </td>
+                      <td className="p-4 text-center">
+                        <button 
+                          onClick={() => softDeleteTransaction(t.id)}
+                          className="text-gray-400 hover:text-red-600 transition-colors"
+                          title="Buang ke Tong Sampah"
+                        >
+                          <Trash2 className="w-5 h-5 mx-auto" />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
             {/* TOTALS FOOTER */}
@@ -280,21 +384,21 @@ export default function ReportsPage() {
               <tfoot className="bg-gray-100 border-t-2 border-black">
                 <tr>
                   <td colSpan={3}></td>
-                  <td className="p-4 text-right font-bold uppercase text-xs text-gray-500">Total Penjualan</td>
-                  <td className="p-4 text-right font-mono font-bold text-green-700">+{totalOut.toLocaleString("id-ID")}</td>
-                  <td></td>
+                  <td className="p-4 text-right font-bold uppercase text-xs text-gray-500">Omzet Penjualan (Kotor)</td>
+                  <td className="p-4 text-right font-mono font-bold text-blue-700">+{totalSalesRevenue.toLocaleString("id-ID")}</td>
+                  <td colSpan={2}></td>
                 </tr>
                 <tr className="border-t border-gray-200">
                   <td colSpan={3}></td>
-                  <td className="p-4 text-right font-bold uppercase text-xs text-gray-500">Total Pembelian</td>
-                  <td className="p-4 text-right font-mono font-bold text-red-700">-{totalIn.toLocaleString("id-ID")}</td>
-                  <td></td>
+                  <td className="p-4 text-right font-bold uppercase text-xs text-gray-500">Modal Terjual (HPP)</td>
+                  <td className="p-4 text-right font-mono font-bold text-red-700">-{costRecovered.toLocaleString("id-ID")}</td>
+                  <td colSpan={2}></td>
                 </tr>
                 <tr className="border-t-2 border-black bg-black text-white">
                   <td colSpan={3}></td>
-                  <td className="p-4 text-right font-bold uppercase text-sm">Saldo Bersih</td>
-                  <td className="p-4 text-right font-mono font-bold text-lg">
-                    {netTotal >= 0 ? '+' : ''}{netTotal.toLocaleString("id-ID")}
+                  <td className="p-4 text-right font-bold uppercase text-sm">TOTAL PROFIT BERSIH</td>
+                  <td className="p-4 text-right font-mono font-bold text-green-400 text-lg" colSpan={2}>
+                    +{realizedProfit.toLocaleString("id-ID")}
                   </td>
                   <td></td>
                 </tr>

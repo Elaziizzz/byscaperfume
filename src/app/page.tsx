@@ -18,6 +18,7 @@ type Material = {
   id: string;
   name: string;
   current_stock: number;
+  cost_price: number;
   price: number;
 };
 
@@ -26,6 +27,7 @@ type Transaction = {
   material_id: string;
   type: 'IN' | 'OUT';
   quantity: number;
+  cost_price: number;
   total_price: number;
   created_at: string;
   deleted_at: string | null;
@@ -139,11 +141,20 @@ export default function POSDashboard() {
     if (!selectedMaterialId || quantity === "" || Number(quantity) <= 0 || finalPrice <= 0) return;
 
     setLoading(true);
+    
+    // For OUT, cost_price is what's in the DB. For IN, calculate inferred cost_price or fallback to DB cost.
+    let transactionCostPrice = selectedMaterial?.cost_price || 0;
+    if (transactionType === 'IN' && quantity && finalPrice) {
+       transactionCostPrice = finalPrice / Number(quantity);
+       // Optional: We could update the materials table to average the cost price here, but let's keep it simple for now
+    }
+
     const { error } = await supabase.from("transactions").insert([
       {
         material_id: selectedMaterialId,
         type: transactionType,
         quantity: Number(quantity),
+        cost_price: transactionCostPrice,
         total_price: finalPrice,
         store: activeStore
       },
