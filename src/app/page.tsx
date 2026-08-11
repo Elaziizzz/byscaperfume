@@ -258,7 +258,7 @@ export default function POSDashboard() {
 
             <button
               type="submit"
-              disabled={loading || !selectedMaterialId || quantity <= 0 || finalPrice <= 0}
+              disabled={loading || !selectedMaterialId || quantity === "" || Number(quantity) <= 0 || finalPrice <= 0}
               className="w-full bg-black text-white p-4 font-bold uppercase tracking-wider hover:bg-gray-800 disabled:bg-gray-300 disabled:text-gray-500 transition-colors flex justify-center items-center gap-2"
             >
               {loading ? "PROCESSING..." : (
