@@ -31,7 +31,6 @@ export async function logout() {
 export async function selectStore(storeId: string) {
   const cookieStore = await cookies();
   cookieStore.set("store", storeId, { 
-    httpOnly: true, 
     secure: process.env.NODE_ENV === "production",
   });
   redirect("/");
