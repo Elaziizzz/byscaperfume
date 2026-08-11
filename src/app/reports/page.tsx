@@ -150,7 +150,7 @@ export default function ReportsPage() {
   };
 
   const exportExcel = () => {
-    const worksheetData = filteredTransactions.map(t => ({
+    const worksheetData: any[] = filteredTransactions.map(t => ({
       "Tanggal": format(new Date(t.created_at), "yyyy-MM-dd HH:mm:ss"),
       "Tipe": t.type === 'IN' ? 'BELI (IN)' : 'JUAL (OUT)',
       "Material": t.materials?.name || "Unknown",

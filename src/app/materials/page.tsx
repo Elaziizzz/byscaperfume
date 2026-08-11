@@ -73,7 +73,7 @@ export default function MaterialsPage() {
       setNewName("");
       setNewStock("");
       setNewPrice("");
-      fetchMaterials(); // Reload list
+      fetchMaterials(activeStore); // Reload list
     } else {
       alert("Error adding material: " + (error.message || JSON.stringify(error)));
       console.error(error);
@@ -88,7 +88,7 @@ export default function MaterialsPage() {
       alert("Error deleting material. It might have transaction history that prevents deletion.");
       console.error(error);
     } else {
-      fetchMaterials();
+      fetchMaterials(activeStore);
     }
   }
 
@@ -113,7 +113,7 @@ export default function MaterialsPage() {
 
     if (!error) {
       setEditingId(null);
-      fetchMaterials();
+      fetchMaterials(activeStore);
     } else {
       alert("Error updating material.");
       console.error(error);

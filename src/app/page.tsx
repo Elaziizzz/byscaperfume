@@ -58,7 +58,7 @@ export default function POSDashboard() {
     const materialSubscription = supabase
       .channel("public:materials")
       .on("postgres_changes", { event: "*", schema: "public", table: "materials" }, () => {
-        fetchMaterials();
+        fetchMaterials(store);
       })
       .subscribe();
 
