@@ -53,7 +53,7 @@ export default function MaterialsPage() {
       setNewPrice("");
       fetchMaterials(); // Reload list
     } else {
-      alert("Error adding material.");
+      alert("Error adding material: " + (error.message || JSON.stringify(error)));
       console.error(error);
     }
   }
