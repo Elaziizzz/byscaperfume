@@ -19,8 +19,19 @@ export function Sidebar() {
           </Link>
         </nav>
       </div>
-      <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
-        v1.0.0 &copy; {new Date().getFullYear()}
+      <div>
+        <form action={async () => {
+          "use server";
+          const { logout } = await import("@/app/actions/auth");
+          await logout();
+        }}>
+          <button type="submit" className="text-sm font-bold text-red-600 hover:underline uppercase mb-4 text-left w-full">
+            Log Out
+          </button>
+        </form>
+        <div className="text-xs font-mono uppercase tracking-widest text-gray-500">
+          v1.0.0 &copy; {new Date().getFullYear()}
+        </div>
       </div>
     </aside>
   );

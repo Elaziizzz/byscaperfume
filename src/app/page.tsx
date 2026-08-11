@@ -34,6 +34,9 @@ export default function POSDashboard() {
   const [quantity, setQuantity] = useState("");
   const [customPrice, setCustomPrice] = useState("");
   const [loading, setLoading] = useState(false);
+  const [initialBudget, setInitialBudget] = useState<number>(0);
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [tempBudget, setTempBudget] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -53,11 +56,25 @@ export default function POSDashboard() {
       })
       .subscribe();
 
+    // Load initial budget from localStorage
+    const savedBudget = localStorage.getItem("karyabahan_initial_budget");
+    if (savedBudget) {
+      setInitialBudget(Number(savedBudget));
+    }
+
     return () => {
       supabase.removeChannel(materialSubscription);
       supabase.removeChannel(transactionSubscription);
     };
   }, []);
+
+  function saveBudget(e: React.FormEvent) {
+    e.preventDefault();
+    const val = Number(tempBudget);
+    setInitialBudget(val);
+    localStorage.setItem("karyabahan_initial_budget", val.toString());
+    setIsEditingBudget(false);
+  }
 
   async function fetchData() {
     await fetchMaterials();
@@ -96,6 +113,7 @@ export default function POSDashboard() {
   const totalRevenue = allTransactions.filter(t => t.type === 'OUT').reduce((sum, t) => sum + Number(t.total_price), 0);
   const totalExpense = allTransactions.filter(t => t.type === 'IN').reduce((sum, t) => sum + Number(t.total_price), 0);
   const netBalance = totalRevenue - totalExpense;
+  const currentBudget = initialBudget + netBalance;
 
   async function handleTransaction(e: React.FormEvent) {
     e.preventDefault();
@@ -150,12 +168,35 @@ export default function POSDashboard() {
               Rp {totalExpense.toLocaleString("id-ID")}
             </div>
           </div>
-          <div className="border border-black p-6 bg-black text-white">
-            <div className="text-sm font-bold uppercase text-gray-400 mb-2">
-              Saldo / Profit (Net)
+          <div className="border border-black p-6 bg-black text-white relative">
+            <div className="text-sm font-bold uppercase text-gray-400 mb-2 flex justify-between items-center">
+              <span>Sisa Saldo Kas (Budget)</span>
+              <button onClick={() => { setIsEditingBudget(true); setTempBudget(initialBudget.toString()); }} className="text-xs border border-gray-600 px-2 py-1 hover:bg-gray-800 transition-colors">
+                Set Modal Awal
+              </button>
             </div>
-            <div className="text-3xl font-mono font-bold">
-              Rp {netBalance.toLocaleString("id-ID")}
+            
+            {isEditingBudget ? (
+              <form onSubmit={saveBudget} className="flex gap-2 mt-2">
+                <input 
+                  type="number" 
+                  className="flex-1 bg-transparent border-b border-white text-white focus:outline-none" 
+                  value={tempBudget}
+                  onChange={e => setTempBudget(e.target.value)}
+                  placeholder="Modal Awal"
+                  autoFocus
+                />
+                <button type="submit" className="text-xs bg-white text-black px-2 font-bold uppercase">Save</button>
+                <button type="button" onClick={() => setIsEditingBudget(false)} className="text-xs text-gray-400 px-2">X</button>
+              </form>
+            ) : (
+              <div className="text-3xl font-mono font-bold">
+                Rp {currentBudget.toLocaleString("id-ID")}
+              </div>
+            )}
+            
+            <div className="text-xs text-gray-500 mt-2">
+              (Modal: Rp {initialBudget.toLocaleString("id-ID")} + Profit: Rp {netBalance.toLocaleString("id-ID")})
             </div>
           </div>
         </div>
