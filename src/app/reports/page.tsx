@@ -47,7 +47,7 @@ export default function ReportsPage() {
   const [activeStore, setActiveStore] = useState("");
   
   // Filter state
-  const [selectedMonthYear, setSelectedMonthYear] = useState<string>("ALL");
+  const [selectedFilter, setSelectedFilter] = useState<string>("TODAY");
 
   useEffect(() => {
     const store = getCookie("store") || "karya_bahan";
@@ -101,9 +101,23 @@ export default function ReportsPage() {
 
   // Filtered transactions
   const filteredTransactions = useMemo(() => {
-    if (selectedMonthYear === "ALL") return allTransactions;
-    return allTransactions.filter(t => format(new Date(t.created_at), "MMMM yyyy") === selectedMonthYear);
-  }, [allTransactions, selectedMonthYear]);
+    const today = new Date();
+    
+    if (selectedFilter === "ALL") return allTransactions;
+    if (selectedFilter === "TODAY") {
+      return allTransactions.filter(t => format(new Date(t.created_at), "yyyy-MM-dd") === format(today, "yyyy-MM-dd"));
+    }
+    if (selectedFilter === "YESTERDAY") {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return allTransactions.filter(t => format(new Date(t.created_at), "yyyy-MM-dd") === format(yesterday, "yyyy-MM-dd"));
+    }
+    if (selectedFilter === "THIS_MONTH") {
+      return allTransactions.filter(t => format(new Date(t.created_at), "MMMM yyyy") === format(today, "MMMM yyyy"));
+    }
+    
+    return allTransactions.filter(t => format(new Date(t.created_at), "MMMM yyyy") === selectedFilter);
+  }, [allTransactions, selectedFilter]);
 
   // Calculations for P&L Dashboard
   const outTransactions = filteredTransactions.filter(t => t.type === 'OUT');
@@ -134,7 +148,14 @@ export default function ReportsPage() {
     
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text(`Periode: ${selectedMonthYear === 'ALL' ? 'Semua Waktu' : selectedMonthYear}`, 14, 30);
+    
+    let filterLabel = selectedFilter;
+    if (selectedFilter === "TODAY") filterLabel = "Hari Ini";
+    else if (selectedFilter === "YESTERDAY") filterLabel = "Kemarin";
+    else if (selectedFilter === "THIS_MONTH") filterLabel = "Bulan Ini";
+    else if (selectedFilter === "ALL") filterLabel = "Semua Waktu";
+
+    doc.text(`Periode: ${filterLabel}`, 14, 30);
     doc.text(`Dicetak pada: ${format(new Date(), "dd MMM yyyy, HH:mm")}`, 14, 35);
 
     const tableColumn = ["Tanggal", "Tipe", "Material", "Qty", "H. Modal/Pcs", "H. Jual/Pcs", "Total (Rp)", "Profit (Rp)"];
@@ -191,7 +212,7 @@ export default function ReportsPage() {
       }
     });
 
-    doc.save(`Laporan_PnL_${activeStore}_${selectedMonthYear.replace(' ', '_')}.pdf`);
+    doc.save(`Laporan_PnL_${activeStore}_${selectedFilter.replace(' ', '_')}.pdf`);
   };
 
   const exportExcel = () => {
@@ -218,7 +239,7 @@ export default function ReportsPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan PnL");
     
-    XLSX.writeFile(workbook, `Laporan_PnL_${activeStore}_${selectedMonthYear.replace(' ', '_')}.xlsx`);
+    XLSX.writeFile(workbook, `Laporan_PnL_${activeStore}_${selectedFilter.replace(' ', '_')}.xlsx`);
   };
 
   return (
@@ -255,16 +276,21 @@ export default function ReportsPage() {
       <div className="bg-gray-100 p-4 border border-black flex items-center gap-4">
         <Calendar className="w-6 h-6 text-gray-500" />
         <div>
-          <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Pilih e-Statement (Bulan)</label>
+          <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Pilih e-Statement (Periode)</label>
           <select 
-            value={selectedMonthYear}
-            onChange={(e) => setSelectedMonthYear(e.target.value)}
+            value={selectedFilter}
+            onChange={(e) => setSelectedFilter(e.target.value)}
             className="bg-white border border-black px-3 py-2 text-sm font-bold w-64 focus:outline-none focus:ring-2 focus:ring-black"
           >
+            <option value="TODAY">Hari Ini</option>
+            <option value="YESTERDAY">Kemarin</option>
+            <option value="THIS_MONTH">Bulan Ini</option>
             <option value="ALL">Semua Waktu (All Time)</option>
-            {monthYears.map(my => (
-              <option key={my} value={my}>{my}</option>
-            ))}
+            <optgroup label="Bulan Spesifik">
+              {monthYears.map(my => (
+                <option key={my} value={my}>{my}</option>
+              ))}
+            </optgroup>
           </select>
         </div>
       </div>
