@@ -48,6 +48,7 @@ export default function ReportsPage() {
   
   // Filter state
   const [selectedFilter, setSelectedFilter] = useState<string>("TODAY");
+  const [customDate, setCustomDate] = useState<string>("");
 
   useEffect(() => {
     const store = getCookie("store") || "karya_bahan";
@@ -115,9 +116,12 @@ export default function ReportsPage() {
     if (selectedFilter === "THIS_MONTH") {
       return allTransactions.filter(t => format(new Date(t.created_at), "MMMM yyyy") === format(today, "MMMM yyyy"));
     }
+    if (selectedFilter === "CUSTOM_DATE" && customDate) {
+      return allTransactions.filter(t => format(new Date(t.created_at), "yyyy-MM-dd") === customDate);
+    }
     
     return allTransactions.filter(t => format(new Date(t.created_at), "MMMM yyyy") === selectedFilter);
-  }, [allTransactions, selectedFilter]);
+  }, [allTransactions, selectedFilter, customDate]);
 
   // Calculations for P&L Dashboard
   const outTransactions = filteredTransactions.filter(t => t.type === 'OUT');
@@ -153,6 +157,7 @@ export default function ReportsPage() {
     if (selectedFilter === "TODAY") filterLabel = "Hari Ini";
     else if (selectedFilter === "YESTERDAY") filterLabel = "Kemarin";
     else if (selectedFilter === "THIS_MONTH") filterLabel = "Bulan Ini";
+    else if (selectedFilter === "CUSTOM_DATE") filterLabel = customDate ? format(new Date(customDate), "dd MMMM yyyy") : "Tanggal Spesifik";
     else if (selectedFilter === "ALL") filterLabel = "Semua Waktu";
 
     doc.text(`Periode: ${filterLabel}`, 14, 30);
@@ -273,7 +278,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Filter Section M-Banking Style */}
-      <div className="bg-gray-100 p-4 border border-black flex items-center gap-4">
+      <div className="bg-gray-100 p-4 border border-black flex flex-wrap items-center gap-4">
         <Calendar className="w-6 h-6 text-gray-500" />
         <div>
           <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Pilih e-Statement (Periode)</label>
@@ -284,6 +289,7 @@ export default function ReportsPage() {
           >
             <option value="TODAY">Hari Ini</option>
             <option value="YESTERDAY">Kemarin</option>
+            <option value="CUSTOM_DATE">Tanggal Spesifik (Kalender)</option>
             <option value="THIS_MONTH">Bulan Ini</option>
             <option value="ALL">Semua Waktu (All Time)</option>
             <optgroup label="Bulan Spesifik">
@@ -293,6 +299,17 @@ export default function ReportsPage() {
             </optgroup>
           </select>
         </div>
+        {selectedFilter === "CUSTOM_DATE" && (
+          <div>
+            <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Pilih Tanggal</label>
+            <input 
+              type="date"
+              className="bg-white border border-black px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-black"
+              value={customDate}
+              onChange={(e) => setCustomDate(e.target.value)}
+            />
+          </div>
+        )}
       </div>
 
       {/* P&L DASHBOARD */}

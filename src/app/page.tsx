@@ -50,11 +50,17 @@ export default function POSDashboard() {
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [tempBudget, setTempBudget] = useState("");
   const [activeStore, setActiveStore] = useState<string>("");
+  const [transactionDate, setTransactionDate] = useState("");
 
   useEffect(() => {
     const store = getCookie("store") || "karya_bahan";
     setActiveStore(store);
     fetchData(store);
+
+    // Set default datetime to local current time
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    setTransactionDate(now.toISOString().slice(0, 16));
 
     // Subscribe to real-time changes
     const materialSubscription = supabase
@@ -149,16 +155,20 @@ export default function POSDashboard() {
        // Optional: We could update the materials table to average the cost price here, but let's keep it simple for now
     }
 
-    const { error } = await supabase.from("transactions").insert([
-      {
-        material_id: selectedMaterialId,
-        type: transactionType,
-        quantity: Number(quantity),
-        cost_price: transactionCostPrice,
-        total_price: finalPrice,
-        store: activeStore
-      },
-    ]);
+    const insertData: any = {
+      material_id: selectedMaterialId,
+      type: transactionType,
+      quantity: Number(quantity),
+      cost_price: transactionCostPrice,
+      total_price: finalPrice,
+      store: activeStore
+    };
+
+    if (transactionDate) {
+      insertData.created_at = new Date(transactionDate).toISOString();
+    }
+
+    const { error } = await supabase.from("transactions").insert([insertData]);
 
     setLoading(false);
     if (!error) {
@@ -258,6 +268,18 @@ export default function POSDashboard() {
           
           <form onSubmit={handleTransaction} className="space-y-6">
             
+            {/* Transaction Date */}
+            <div>
+              <label className="block text-xs font-bold mb-2 uppercase tracking-wide">Tanggal Transaksi</label>
+              <input
+                type="datetime-local"
+                className="w-full border border-black p-3 bg-transparent focus:outline-none focus:ring-1 focus:ring-black"
+                value={transactionDate}
+                onChange={(e) => setTransactionDate(e.target.value)}
+                required
+              />
+            </div>
+
             {/* Transaction Type Toggle */}
             <div className="flex gap-4">
               <label className="flex-1 cursor-pointer">
