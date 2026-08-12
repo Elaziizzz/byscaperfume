@@ -23,11 +23,11 @@ export default function StoreSelectPage() {
     if (!activeStorePrompt) return;
 
     // PIN Verification
-    if (activeStorePrompt === "karya_bahan" && pinInput.toLowerCase() !== "karya bahan") {
+    if (activeStorePrompt === "karya_bahan" && pinInput.toLowerCase() !== "jayaplavon") {
       setErrorMsg("Password salah!");
       return;
     }
-    if (activeStorePrompt === "bysca" && pinInput !== "02122004") {
+    if (activeStorePrompt === "bysca" && pinInput !== "997992") {
       setErrorMsg("Password salah!");
       return;
     }
