@@ -137,7 +137,7 @@ export default function ReportsPage() {
     doc.text(`Periode: ${selectedMonthYear === 'ALL' ? 'Semua Waktu' : selectedMonthYear}`, 14, 30);
     doc.text(`Dicetak pada: ${format(new Date(), "dd MMM yyyy, HH:mm")}`, 14, 35);
 
-    const tableColumn = ["Tanggal", "Tipe", "Material", "Qty", "Total (Rp)", "Profit (Rp)"];
+    const tableColumn = ["Tanggal", "Tipe", "Material", "Qty", "Harga/Pcs", "Total (Rp)", "Profit (Rp)"];
     const tableRows: any[] = [];
 
     filteredTransactions.forEach(t => {
@@ -145,12 +145,14 @@ export default function ReportsPage() {
       const priceStr = (t.type === 'IN' ? '-' : '+') + t.total_price.toLocaleString("id-ID");
       const profit = t.type === 'OUT' ? (t.total_price - (t.quantity * (t.cost_price || 0))) : 0;
       const profitStr = t.type === 'OUT' ? `+${profit.toLocaleString("id-ID")}` : '-';
+      const unitPriceStr = (t.total_price / (t.quantity || 1)).toLocaleString("id-ID");
 
       const rowData = [
         format(new Date(t.created_at), "dd MMM yyyy HH:mm"),
         typeStr,
         t.materials?.name || "Unknown",
         t.quantity.toString(),
+        unitPriceStr,
         priceStr,
         profitStr
       ];
@@ -158,13 +160,13 @@ export default function ReportsPage() {
     });
 
     // Add empty row for spacing
-    tableRows.push(["", "", "", "", "", ""]);
+    tableRows.push(["", "", "", "", "", "", ""]);
     
     // Add Total rows at the bottom
-    tableRows.push(["", "", "", "TOTAL PENJUALAN:", `+${totalSalesRevenue.toLocaleString("id-ID")}`, ""]);
-    tableRows.push(["", "", "", "MODAL TERJUAL (HPP):", `-${costRecovered.toLocaleString("id-ID")}`, ""]);
-    tableRows.push(["", "", "", "PROFIT BERSIH:", "", `+${realizedProfit.toLocaleString("id-ID")}`]);
-    tableRows.push(["", "", "", "TOTAL PEMBELIAN:", `-${totalPurchaseCost.toLocaleString("id-ID")}`, ""]);
+    tableRows.push(["", "", "", "", "TOTAL PENJUALAN:", `+${totalSalesRevenue.toLocaleString("id-ID")}`, ""]);
+    tableRows.push(["", "", "", "", "MODAL KELUAR:", `-${costRecovered.toLocaleString("id-ID")}`, ""]);
+    tableRows.push(["", "", "", "", "PROFIT BERSIH:", "", `+${realizedProfit.toLocaleString("id-ID")}`]);
+    tableRows.push(["", "", "", "", "TOTAL PEMBELIAN:", `-${totalPurchaseCost.toLocaleString("id-ID")}`, ""]);
 
     autoTable(doc, {
       head: [tableColumn],
@@ -177,7 +179,7 @@ export default function ReportsPage() {
         // Make total rows bold
         if (data.row.index >= tableRows.length - 4 && data.row.index <= tableRows.length - 1) {
           data.cell.styles.fontStyle = 'bold';
-          if (data.column.index === 4 || data.column.index === 5) { // Color the amounts
+          if (data.column.index === 5 || data.column.index === 6) { // Color the amounts
              if (data.row.index === tableRows.length - 4) data.cell.styles.textColor = [0, 128, 0]; // Penjualan (Green)
              if (data.row.index === tableRows.length - 3) data.cell.styles.textColor = [200, 0, 0]; // HPP (Red)
              if (data.row.index === tableRows.length - 2) data.cell.styles.textColor = [0, 128, 0]; // Profit (Green)
@@ -197,6 +199,7 @@ export default function ReportsPage() {
         "Tipe": t.type === 'IN' ? 'BELI (IN)' : 'JUAL (OUT)',
         "Material": t.materials?.name || "Unknown",
         "Quantity": t.quantity,
+        "Harga/Pcs (Rp)": t.total_price / (t.quantity || 1),
         "Harga Modal Satuan (Rp)": t.cost_price || 0,
         "Total Price (Rp)": t.type === 'IN' ? -t.total_price : t.total_price,
         "Profit (Rp)": profit
@@ -204,9 +207,9 @@ export default function ReportsPage() {
     });
 
     // Add Total rows
-    worksheetData.push({ "Tanggal": "", "Tipe": "", "Material": "", "Quantity": "TOTAL JUAL", "Total Price (Rp)": totalSalesRevenue as any, "Profit (Rp)": "" });
-    worksheetData.push({ "Tanggal": "", "Tipe": "", "Material": "", "Quantity": "MODAL TERJUAL", "Total Price (Rp)": -costRecovered as any, "Profit (Rp)": "" });
-    worksheetData.push({ "Tanggal": "", "Tipe": "", "Material": "", "Quantity": "PROFIT BERSIH", "Total Price (Rp)": "", "Profit (Rp)": realizedProfit as any });
+    worksheetData.push({ "Tanggal": "", "Tipe": "", "Material": "", "Quantity": "TOTAL JUAL", "Harga/Pcs (Rp)": "", "Total Price (Rp)": totalSalesRevenue as any, "Profit (Rp)": "" });
+    worksheetData.push({ "Tanggal": "", "Tipe": "", "Material": "", "Quantity": "MODAL KELUAR", "Harga/Pcs (Rp)": "", "Total Price (Rp)": -costRecovered as any, "Profit (Rp)": "" });
+    worksheetData.push({ "Tanggal": "", "Tipe": "", "Material": "", "Quantity": "PROFIT BERSIH", "Harga/Pcs (Rp)": "", "Total Price (Rp)": "", "Profit (Rp)": realizedProfit as any });
 
     const worksheet = XLSX.utils.json_to_sheet(worksheetData);
     const workbook = XLSX.utils.book_new();
@@ -265,11 +268,11 @@ export default function ReportsPage() {
 
       {/* P&L DASHBOARD */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Modal Kembali */}
+        {/* Card 1: Modal Keluar */}
         <div className="border border-black p-4 bg-white relative overflow-hidden group hover:bg-gray-50 transition-colors">
           <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
             <DollarSign className="w-4 h-4 text-blue-600" />
-            Modal Terjual (HPP)
+            Modal Keluar
           </div>
           <div className="text-2xl font-black text-blue-800">
             Rp {costRecovered.toLocaleString("id-ID")}
@@ -324,6 +327,7 @@ export default function ReportsPage() {
                 <th className="p-4 font-bold">Tipe</th>
                 <th className="p-4 font-bold">Material</th>
                 <th className="p-4 font-bold text-right">Qty</th>
+                <th className="p-4 font-bold text-right">Harga/Pcs (Rp)</th>
                 <th className="p-4 font-bold text-right">Total Transaksi (Rp)</th>
                 <th className="p-4 font-bold text-right text-green-400">Profit Bersih (Rp)</th>
                 <th className="p-4 font-bold text-center">Aksi</th>
@@ -332,11 +336,11 @@ export default function ReportsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-gray-500 italic">Memuat laporan...</td>
+                  <td colSpan={8} className="p-8 text-center text-gray-500 italic">Memuat laporan...</td>
                 </tr>
               ) : filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-gray-500 italic">Tidak ada transaksi di periode ini.</td>
+                  <td colSpan={8} className="p-8 text-center text-gray-500 italic">Tidak ada transaksi di periode ini.</td>
                 </tr>
               ) : (
                 filteredTransactions.map((t) => {
@@ -358,6 +362,9 @@ export default function ReportsPage() {
                       </td>
                       <td className="p-4 text-right font-mono">
                         {t.quantity}
+                      </td>
+                      <td className="p-4 text-right font-mono text-gray-600">
+                        {(t.total_price / (t.quantity || 1)).toLocaleString("id-ID")}
                       </td>
                       <td className={`p-4 text-right font-mono font-bold ${t.type === 'IN' ? 'text-red-600' : 'text-blue-700'}`}>
                         {t.type === 'IN' ? '-' : '+'} {t.total_price.toLocaleString("id-ID")}
@@ -383,19 +390,19 @@ export default function ReportsPage() {
             {!loading && filteredTransactions.length > 0 && (
               <tfoot className="bg-gray-100 border-t-2 border-black">
                 <tr>
-                  <td colSpan={3}></td>
+                  <td colSpan={4}></td>
                   <td className="p-4 text-right font-bold uppercase text-xs text-gray-500">Omzet Penjualan (Kotor)</td>
                   <td className="p-4 text-right font-mono font-bold text-blue-700">+{totalSalesRevenue.toLocaleString("id-ID")}</td>
                   <td colSpan={2}></td>
                 </tr>
                 <tr className="border-t border-gray-200">
-                  <td colSpan={3}></td>
-                  <td className="p-4 text-right font-bold uppercase text-xs text-gray-500">Modal Terjual (HPP)</td>
+                  <td colSpan={4}></td>
+                  <td className="p-4 text-right font-bold uppercase text-xs text-gray-500">Modal Keluar</td>
                   <td className="p-4 text-right font-mono font-bold text-red-700">-{costRecovered.toLocaleString("id-ID")}</td>
                   <td colSpan={2}></td>
                 </tr>
                 <tr className="border-t-2 border-black bg-black text-white">
-                  <td colSpan={3}></td>
+                  <td colSpan={4}></td>
                   <td className="p-4 text-right font-bold uppercase text-sm">TOTAL PROFIT BERSIH</td>
                   <td className="p-4 text-right font-mono font-bold text-green-400 text-lg" colSpan={2}>
                     +{realizedProfit.toLocaleString("id-ID")}

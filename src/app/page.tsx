@@ -126,9 +126,9 @@ export default function POSDashboard() {
   const selectedMaterial = materials.find((m) => m.id === selectedMaterialId);
   const calculatedPrice = selectedMaterial ? selectedMaterial.price * Number(quantity || 0) : 0;
   
-  // If IN, use custom price input, else use calculated price
+  // If IN, customPrice is Modal per Pcs, so Total = Modal per Pcs * Quantity
   const finalPrice = transactionType === 'IN' 
-    ? (customPrice !== "" ? Number(customPrice) : 0) 
+    ? (customPrice !== "" ? Number(customPrice) * Number(quantity || 0) : 0) 
     : calculatedPrice;
 
   const totalRevenue = allTransactions.filter(t => t.type === 'OUT').reduce((sum, t) => sum + Number(t.total_price), 0);
@@ -321,14 +321,14 @@ export default function POSDashboard() {
 
             {transactionType === 'IN' && (
               <div>
-                <label className="block text-sm font-bold mb-2 uppercase text-red-600">Total Harga Beli (Rp)</label>
+                <label className="block text-sm font-bold mb-2 uppercase text-red-600">Harga Modal / Pcs (Rp)</label>
                 <input
                   type="number"
                   min="1"
                   className="w-full border border-black p-3 bg-transparent focus:outline-none focus:ring-1 focus:ring-black"
                   value={customPrice}
                   onChange={(e) => setCustomPrice(e.target.value.replace(/^0+(?=\d)/, ''))}
-                  placeholder="Contoh: 1500000"
+                  placeholder="Contoh: 50000"
                   required
                 />
               </div>
