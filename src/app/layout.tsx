@@ -6,8 +6,8 @@ import { Sidebar } from "@/components/layout/Sidebar";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Karya Bahan - POS & Bookkeeping",
-  description: "Production-ready bookkeeping app for Karya Bahan material store.",
+  title: "BYSCA - POS & Bookkeeping",
+  description: "Production-ready bookkeeping app for BYSCA store.",
 };
 
 export default function RootLayout({
