@@ -37,6 +37,9 @@ export default function POSDashboard() {
   const [quantity, setQuantity] = useState("");
   const [customPrice, setCustomPrice] = useState("");
   const [loading, setLoading] = useState(false);
+  const [initialBudget, setInitialBudget] = useState<number>(0);
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [tempBudget, setTempBudget] = useState("");
   const [activeStore] = useState<string>("bysca");
   const [transactionDate, setTransactionDate] = useState("");
 
@@ -52,19 +55,19 @@ export default function POSDashboard() {
     const materialSubscription = supabase
       .channel("public:materials")
       .on("postgres_changes", { event: "*", schema: "public", table: "materials" }, () => {
-        fetchMaterials(store);
+        fetchMaterials("bysca");
       })
       .subscribe();
 
     const transactionSubscription = supabase
       .channel("public:transactions")
       .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => {
-        fetchTransactions(store);
+        fetchTransactions("bysca");
       })
       .subscribe();
 
     // Load initial budget from localStorage (per store)
-    const savedBudget = localStorage.getItem(`karyabahan_initial_budget_${store}`);
+    const savedBudget = localStorage.getItem(`karyabahan_initial_budget_bysca`);
     if (savedBudget) {
       setInitialBudget(Number(savedBudget));
     } else {
