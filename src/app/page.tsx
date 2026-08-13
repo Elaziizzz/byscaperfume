@@ -5,15 +5,6 @@ import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import { PlusCircle, ShoppingCart, ArrowDownRight, ArrowUpRight, Wallet } from "lucide-react";
 
-// Helper function to read cookie on client side safely
-function getCookie(name: string) {
-  if (typeof document === 'undefined') return null;
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(';').shift();
-  return null;
-}
-
 type Material = {
   id: string;
   name: string;
@@ -46,16 +37,11 @@ export default function POSDashboard() {
   const [quantity, setQuantity] = useState("");
   const [customPrice, setCustomPrice] = useState("");
   const [loading, setLoading] = useState(false);
-  const [initialBudget, setInitialBudget] = useState<number>(0);
-  const [isEditingBudget, setIsEditingBudget] = useState(false);
-  const [tempBudget, setTempBudget] = useState("");
-  const [activeStore, setActiveStore] = useState<string>("");
+  const [activeStore] = useState<string>("bysca");
   const [transactionDate, setTransactionDate] = useState("");
 
   useEffect(() => {
-    const store = getCookie("store") || "karya_bahan";
-    setActiveStore(store);
-    fetchData(store);
+    fetchData("bysca");
 
     // Set default datetime to local current time
     const now = new Date();
