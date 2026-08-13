@@ -7,7 +7,7 @@ export async function login(formData: FormData) {
   const email = formData.get("email");
   const password = formData.get("password");
 
-  if (email === "karyabahan123@gmail.com" && password === "karyabahan33") {
+  if (email === "karyabahan123@gmail.com" && password === "997992") {
     // Session Cookie (otomatis hilang saat browser/tab ditutup)
     const cookieStore = await cookies();
     cookieStore.set("auth", "true", { 
@@ -18,7 +18,7 @@ export async function login(formData: FormData) {
     return { success: true };
   }
 
-  return { success: false, error: "Email atau Password salah" };
+  return { success: false, error: "Email atau PIN salah" };
 }
 
 export async function logout() {

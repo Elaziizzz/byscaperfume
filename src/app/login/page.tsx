@@ -35,8 +35,8 @@ export default function LoginPage() {
           </div>
         </div>
         
-        <h1 className="text-3xl font-black uppercase text-center mb-2">Karya Bahan</h1>
-        <p className="text-center text-gray-500 mb-8 font-medium">Sistem Inventori & Kasir</p>
+        <h1 className="text-3xl font-black uppercase text-center mb-2">BYSCA</h1>
+        <p className="text-center text-gray-500 mb-8 font-medium">Toko Parfum Premium</p>
 
         {error && (
           <div className="bg-red-100 border border-red-500 text-red-700 p-3 mb-6 font-bold text-center">
@@ -57,7 +57,7 @@ export default function LoginPage() {
           </div>
           
           <div>
-            <label className="block text-sm font-bold uppercase mb-2">Password</label>
+            <label className="block text-sm font-bold uppercase mb-2">PIN</label>
             <input 
               type="password" 
               name="password"
