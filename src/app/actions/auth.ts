@@ -7,7 +7,7 @@ export async function login(formData: FormData) {
   const email = formData.get("email");
   const password = formData.get("password");
 
-  if (email === "karyabahan123@gmail.com" && password === "997992") {
+  if (email === "bysca.official07@gmail.com" && password === "997992") {
     // Session Cookie (otomatis hilang saat browser/tab ditutup)
     const cookieStore = await cookies();
     cookieStore.set("auth", "true", { 

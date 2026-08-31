@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import { PlusCircle, ShoppingCart, ArrowDownRight, ArrowUpRight, Wallet } from "lucide-react";
+import { useToast } from "@/components/ui/ToastProvider";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 
 type Material = {
   id: string;
@@ -45,6 +47,7 @@ export default function POSDashboard() {
   const [transactionDate, setTransactionDate] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     fetchData("bysca");
@@ -169,13 +172,14 @@ export default function POSDashboard() {
 
     setLoading(false);
     if (!error) {
+      showToast("Transaksi berhasil disimpan", "success");
       setSelectedMaterialId("");
       setSearchQuery("");
       setQuantity("");
       setCustomPrice("");
     } else {
       console.error(error);
-      alert("Error processing transaction");
+      showToast("Gagal menyimpan transaksi", "error");
     }
   }
 
@@ -190,12 +194,56 @@ export default function POSDashboard() {
     setLoading(false);
     if (error) {
       console.error(error);
-      alert("Error menghapus transaksi: " + error.message);
+      showToast("Gagal menghapus transaksi", "error");
+    } else {
+      showToast("Transaksi berhasil dihapus", "success");
     }
   }
 
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (highlightedIndex >= 0 && dropdownRef.current) {
+      const itemElement = dropdownRef.current.children[highlightedIndex] as HTMLElement;
+      if (itemElement) {
+        itemElement.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [highlightedIndex]);
+
+  const selectMaterial = (m: Material) => {
+    if (transactionType === 'OUT' && m.current_stock <= 0) return;
+    setSelectedMaterialId(m.id);
+    setSearchQuery(m.code ? `[${m.code}] ${m.name}` : m.name);
+    setIsDropdownOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isDropdownOpen) {
+      if (e.key === 'ArrowDown') setIsDropdownOpen(true);
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev < filteredMaterials.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev > 0 ? prev - 1 : prev));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlightedIndex >= 0 && highlightedIndex < filteredMaterials.length) {
+        selectMaterial(filteredMaterials[highlightedIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setIsDropdownOpen(false);
+    }
+  };
+
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-12">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-12 animate-fade-in">
       
       {/* Financial Summary */}
       <div>
@@ -204,48 +252,48 @@ export default function POSDashboard() {
           FINANCIAL SUMMARY
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="border border-black p-6 bg-white">
-            <div className="text-sm font-bold uppercase text-gray-500 mb-2 flex items-center gap-2">
+          <div className="border border-black p-6 bg-white hover-elevate transition-swiss group">
+            <div className="text-sm font-bold uppercase text-gray-500 mb-2 flex items-center gap-2 group-hover:text-black transition-colors">
               <ArrowUpRight className="w-4 h-4 text-green-600" />
               Total Penjualan (Revenue)
             </div>
             <div className="text-3xl font-mono font-bold text-green-700">
-              Rp {totalRevenue.toLocaleString("id-ID")}
+              Rp <AnimatedNumber value={totalRevenue} />
             </div>
           </div>
-          <div className="border border-black p-6 bg-white">
-            <div className="text-sm font-bold uppercase text-gray-500 mb-2 flex items-center gap-2">
+          <div className="border border-black p-6 bg-white hover-elevate transition-swiss group">
+            <div className="text-sm font-bold uppercase text-gray-500 mb-2 flex items-center gap-2 group-hover:text-black transition-colors">
               <ArrowDownRight className="w-4 h-4 text-red-600" />
               Total Pembelian (Expense)
             </div>
             <div className="text-3xl font-mono font-bold text-red-700">
-              Rp {totalExpense.toLocaleString("id-ID")}
+              Rp <AnimatedNumber value={totalExpense} />
             </div>
           </div>
-          <div className="border border-black p-6 bg-black text-white relative">
+          <div className="border border-black p-6 bg-black text-white relative hover-elevate transition-swiss">
             <div className="text-sm font-bold uppercase text-gray-400 mb-2 flex justify-between items-center">
               <span>Sisa Saldo Kas (Budget)</span>
-              <button onClick={() => { setIsEditingBudget(true); setTempBudget(initialBudget.toString()); }} className="text-xs border border-gray-600 px-2 py-1 hover:bg-gray-800 transition-colors">
+              <button onClick={() => { setIsEditingBudget(true); setTempBudget(initialBudget.toString()); }} className="text-xs border border-gray-600 px-2 py-1 hover:bg-gray-800 transition-colors active-press">
                 Set Modal Awal
               </button>
             </div>
             
             {isEditingBudget ? (
-              <form onSubmit={saveBudget} className="flex gap-2 mt-2">
+              <form onSubmit={saveBudget} className="flex gap-2 mt-2 animate-fade-in">
                 <input 
                   type="number" 
-                  className="flex-1 bg-transparent border-b border-white text-white focus:outline-none" 
+                  className="flex-1 bg-transparent border-b border-white text-white focus:outline-none focus:border-gray-400 transition-colors" 
                   value={tempBudget}
                   onChange={e => setTempBudget(e.target.value)}
                   placeholder="Modal Awal"
                   autoFocus
                 />
-                <button type="submit" className="text-xs bg-white text-black px-2 font-bold uppercase">Save</button>
-                <button type="button" onClick={() => setIsEditingBudget(false)} className="text-xs text-gray-400 px-2">X</button>
+                <button type="submit" className="text-xs bg-white text-black px-2 font-bold uppercase hover:bg-gray-200 transition-colors active-press">Save</button>
+                <button type="button" onClick={() => setIsEditingBudget(false)} className="text-xs text-gray-400 px-2 hover:text-white transition-colors">X</button>
               </form>
             ) : (
               <div className="text-3xl font-mono font-bold">
-                Rp {currentBudget.toLocaleString("id-ID")}
+                Rp <AnimatedNumber value={currentBudget} />
               </div>
             )}
             
@@ -271,7 +319,7 @@ export default function POSDashboard() {
               <label className="block text-xs font-bold mb-2 uppercase tracking-wide">Tanggal Transaksi</label>
               <input
                 type="datetime-local"
-                className="w-full border border-black p-3 bg-transparent focus:outline-none focus:ring-1 focus:ring-black"
+                className="w-full border border-black p-3 bg-transparent focus-ring transition-swiss"
                 value={transactionDate}
                 onChange={(e) => setTransactionDate(e.target.value)}
                 required
@@ -289,7 +337,7 @@ export default function POSDashboard() {
                   checked={transactionType === 'OUT'}
                   onChange={() => setTransactionType('OUT')}
                 />
-                <div className="text-center p-3 border border-black font-bold uppercase peer-checked:bg-black peer-checked:text-white transition-colors">
+                <div className="text-center p-3 border border-black font-bold uppercase peer-checked:bg-black peer-checked:text-white hover:bg-gray-100 peer-checked:hover:bg-black transition-swiss active-press">
                   Jual Barang
                 </div>
               </label>
@@ -302,7 +350,7 @@ export default function POSDashboard() {
                   checked={transactionType === 'IN'}
                   onChange={() => setTransactionType('IN')}
                 />
-                <div className="text-center p-3 border border-black font-bold uppercase peer-checked:bg-black peer-checked:text-white transition-colors">
+                <div className="text-center p-3 border border-black font-bold uppercase peer-checked:bg-black peer-checked:text-white hover:bg-gray-100 peer-checked:hover:bg-black transition-swiss active-press">
                   Beli Bahan
                 </div>
               </label>
@@ -311,41 +359,42 @@ export default function POSDashboard() {
             <div className="relative">
               <label className="block text-sm font-bold mb-2 uppercase">Material / Kode Barang</label>
               <div 
-                className="w-full border border-black bg-white flex items-center relative"
+                className={`w-full border bg-white flex items-center relative transition-swiss ${isDropdownOpen ? 'border-black ring-1 ring-black' : 'border-black'}`}
               >
                 <input
                   type="text"
-                  className="w-full p-3 bg-transparent focus:outline-none focus:ring-1 focus:ring-black"
+                  className="w-full p-3 bg-transparent focus:outline-none"
                   placeholder="Ketik nama atau kode barang..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
+                    setHighlightedIndex(-1);
                     setIsDropdownOpen(true);
                     if (selectedMaterialId) setSelectedMaterialId(""); // Clear selection if typing
                   }}
+                  onKeyDown={handleKeyDown}
                   onFocus={() => setIsDropdownOpen(true)}
                   onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
                 />
               </div>
 
               {isDropdownOpen && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-black shadow-lg max-h-60 overflow-y-auto">
+                <div ref={dropdownRef} className="absolute z-20 w-full mt-1 bg-white border border-black shadow-xl max-h-60 overflow-y-auto animate-fade-in">
                   {filteredMaterials.length === 0 ? (
                     <div className="p-3 text-gray-500 text-sm">Tidak ditemukan...</div>
                   ) : (
-                    filteredMaterials.map((m) => (
+                    filteredMaterials.map((m, index) => (
                       <div
                         key={m.id}
-                        className={`p-3 cursor-pointer border-b border-gray-100 hover:bg-gray-100 flex justify-between items-center ${transactionType === 'OUT' && m.current_stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''} ${selectedMaterialId === m.id ? 'bg-gray-200 font-bold' : ''}`}
-                        onClick={() => {
-                          if (transactionType === 'OUT' && m.current_stock <= 0) return;
-                          setSelectedMaterialId(m.id);
-                          setSearchQuery(m.code ? `[${m.code}] ${m.name}` : m.name);
-                          setIsDropdownOpen(false);
+                        className={`p-3 cursor-pointer border-b border-gray-100 transition-colors flex justify-between items-center ${transactionType === 'OUT' && m.current_stock <= 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'} ${selectedMaterialId === m.id ? 'bg-gray-200 font-bold' : ''} ${highlightedIndex === index ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent'}`}
+                        onMouseDown={(e) => {
+                          e.preventDefault(); // Prevent onBlur from firing before click
+                          selectMaterial(m);
                         }}
+                        onMouseEnter={() => setHighlightedIndex(index)}
                       >
                         <div>
-                          {m.code && <span className="text-xs font-mono bg-gray-200 px-1 py-0.5 rounded mr-2 border border-gray-300">{m.code}</span>}
+                          {m.code && <span className="text-xs font-mono bg-white px-1 py-0.5 rounded mr-2 border border-black">{m.code}</span>}
                           <span>{m.name}</span>
                         </div>
                         <div className="text-xs text-gray-500 font-mono">Stock: {m.current_stock}</div>
@@ -362,7 +411,7 @@ export default function POSDashboard() {
                 type="number"
                 min="1"
                 max={transactionType === 'OUT' ? (selectedMaterial?.current_stock || 1) : undefined}
-                className="w-full border border-black p-3 bg-transparent focus:outline-none focus:ring-1 focus:ring-black"
+                className="w-full border border-black p-3 bg-transparent focus-ring transition-swiss"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value.replace(/^0+(?=\d)/, ''))}
                 placeholder="Jumlah barang"
@@ -371,12 +420,12 @@ export default function POSDashboard() {
             </div>
 
             {transactionType === 'IN' && (
-              <div>
+              <div className="animate-fade-in">
                 <label className="block text-sm font-bold mb-2 uppercase text-red-600">Harga Modal / Pcs (Rp)</label>
                 <input
                   type="number"
                   min="1"
-                  className="w-full border border-black p-3 bg-transparent focus:outline-none focus:ring-1 focus:ring-black"
+                  className="w-full border border-black p-3 bg-transparent focus-ring transition-swiss"
                   value={customPrice}
                   onChange={(e) => setCustomPrice(e.target.value.replace(/^0+(?=\d)/, ''))}
                   placeholder="Contoh: 50000"
@@ -389,7 +438,7 @@ export default function POSDashboard() {
               <div className="flex justify-between items-center text-lg">
                 <span className="font-bold uppercase">Total</span>
                 <span className={`font-mono font-bold ${transactionType === 'IN' ? 'text-red-600' : 'text-green-600'}`}>
-                  Rp {finalPrice.toLocaleString("id-ID")}
+                  Rp <AnimatedNumber value={finalPrice} />
                 </span>
               </div>
             </div>
@@ -397,7 +446,7 @@ export default function POSDashboard() {
             <button
               type="submit"
               disabled={loading || !selectedMaterialId || quantity === "" || Number(quantity) <= 0 || finalPrice <= 0}
-              className="w-full bg-black text-white p-4 font-bold uppercase tracking-wider hover:bg-gray-800 disabled:bg-gray-300 disabled:text-gray-500 transition-colors flex justify-center items-center gap-2"
+              className="w-full bg-black text-white p-4 font-bold uppercase tracking-wider hover:bg-gray-800 disabled:bg-gray-300 disabled:text-gray-500 transition-swiss hover-elevate active-press flex justify-center items-center gap-2"
             >
               {loading ? "PROCESSING..." : (
                 <>
@@ -457,7 +506,7 @@ export default function POSDashboard() {
                         <td className="p-3 border-b border-gray-200 text-center">
                           <button 
                             onClick={() => softDeleteTransaction(t.id)}
-                            className="text-xs border border-red-500 text-red-600 px-2 py-1 hover:bg-red-600 hover:text-white transition-colors"
+                            className="text-xs border border-red-500 text-red-600 px-2 py-1 hover:bg-red-600 hover:text-white transition-swiss active-press"
                           >
                             Hapus
                           </button>
@@ -475,17 +524,33 @@ export default function POSDashboard() {
               CURRENT INVENTORY
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {materials.map((m) => (
-                <div key={m.id} className="border border-black p-4 flex flex-col justify-between">
-                  <div className="text-sm font-bold uppercase mb-2 truncate" title={m.name}>{m.name}</div>
-                  <div className="flex justify-between items-end">
-                    <div className="text-xs text-gray-500">Stock</div>
-                    <div className={`text-2xl font-mono font-bold ${m.current_stock <= 10 ? "text-red-600" : ""}`}>
-                      {m.current_stock}
+              {materials.length === 0 ? (
+                // Skeleton loading
+                [1,2,3].map(i => (
+                  <div key={i} className="border border-gray-200 p-4 animate-pulse bg-gray-50">
+                    <div className="h-4 bg-gray-200 w-3/4 mb-4"></div>
+                    <div className="flex justify-between items-end">
+                      <div className="h-3 bg-gray-200 w-8"></div>
+                      <div className="h-6 bg-gray-200 w-12"></div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                materials.map((m) => (
+                  <div key={m.id} className="border border-black p-4 flex flex-col justify-between bg-white hover-elevate transition-swiss group relative">
+                    {m.current_stock <= 10 && (
+                      <span className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-1 py-0.5 animate-fade-in uppercase">⚠️ Low</span>
+                    )}
+                    <div className="text-sm font-bold uppercase mb-2 truncate group-hover:text-blue-600 transition-colors" title={m.name}>{m.name}</div>
+                    <div className="flex justify-between items-end">
+                      <div className="text-xs text-gray-500">Stock</div>
+                      <div className={`text-2xl font-mono font-bold ${m.current_stock <= 10 ? "text-red-600" : ""}`}>
+                        {m.current_stock}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

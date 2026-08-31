@@ -42,6 +42,7 @@ export default function ReportsPage() {
   // Filter state
   const [selectedFilter, setSelectedFilter] = useState<string>("TODAY");
   const [customDate, setCustomDate] = useState<string>("");
+  const [customMonth, setCustomMonth] = useState<string>("");
 
   useEffect(() => {
     fetchData("bysca");
@@ -85,12 +86,6 @@ export default function ReportsPage() {
     }
   }
 
-  // Get unique months for the filter dropdown
-  const monthYears = useMemo(() => {
-    const dates = allTransactions.map(t => format(new Date(t.created_at), "MMMM yyyy"));
-    return Array.from(new Set(dates)); // Unique
-  }, [allTransactions]);
-
   // Filtered transactions
   const filteredTransactions = useMemo(() => {
     const today = new Date();
@@ -110,9 +105,12 @@ export default function ReportsPage() {
     if (selectedFilter === "CUSTOM_DATE" && customDate) {
       return allTransactions.filter(t => format(new Date(t.created_at), "yyyy-MM-dd") === customDate);
     }
+    if (selectedFilter === "CUSTOM_MONTH" && customMonth) {
+      return allTransactions.filter(t => format(new Date(t.created_at), "yyyy-MM") === customMonth);
+    }
     
-    return allTransactions.filter(t => format(new Date(t.created_at), "MMMM yyyy") === selectedFilter);
-  }, [allTransactions, selectedFilter, customDate]);
+    return allTransactions;
+  }, [allTransactions, selectedFilter, customDate, customMonth]);
 
   // Calculations for P&L Dashboard
   const outTransactions = filteredTransactions.filter(t => t.type === 'OUT');
@@ -149,6 +147,7 @@ export default function ReportsPage() {
     else if (selectedFilter === "YESTERDAY") filterLabel = "Kemarin";
     else if (selectedFilter === "THIS_MONTH") filterLabel = "Bulan Ini";
     else if (selectedFilter === "CUSTOM_DATE") filterLabel = customDate ? format(new Date(customDate), "dd MMMM yyyy") : "Tanggal Spesifik";
+    else if (selectedFilter === "CUSTOM_MONTH") filterLabel = customMonth ? format(new Date(customMonth + "-01"), "MMMM yyyy") : "Bulan Spesifik";
     else if (selectedFilter === "ALL") filterLabel = "Semua Waktu";
 
     doc.text(`Periode: ${filterLabel}`, 14, 30);
@@ -296,7 +295,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 border-b-2 border-black pb-4">
         <div>
           <h1 className="text-3xl font-bold uppercase flex items-center gap-2">
@@ -309,7 +308,7 @@ export default function ReportsPage() {
           <button 
             onClick={exportPDF}
             disabled={loading || filteredTransactions.length === 0}
-            className="flex items-center gap-2 border border-black px-4 py-2 font-bold uppercase text-sm hover:bg-black hover:text-white transition-colors"
+            className="flex items-center gap-2 border border-black px-4 py-2 font-bold uppercase text-sm hover:bg-black hover:text-white transition-swiss hover-elevate active-press disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             Export PDF
@@ -317,7 +316,7 @@ export default function ReportsPage() {
           <button 
             onClick={exportExcel}
             disabled={loading || filteredTransactions.length === 0}
-            className="flex items-center gap-2 border border-black bg-black text-white px-4 py-2 font-bold uppercase text-sm hover:bg-gray-800 transition-colors"
+            className="flex items-center gap-2 border border-black bg-black text-white px-4 py-2 font-bold uppercase text-sm hover:bg-gray-800 transition-swiss hover-elevate active-press disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             Export Excel
@@ -326,35 +325,46 @@ export default function ReportsPage() {
       </div>
 
       {/* Filter Section M-Banking Style */}
-      <div className="bg-gray-100 p-4 border border-black flex flex-wrap items-center gap-4">
+      <div className="bg-gray-100 p-4 border border-black flex flex-wrap items-center gap-4 transition-swiss hover:shadow-sm">
         <Calendar className="w-6 h-6 text-gray-500" />
         <div>
           <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Pilih e-Statement (Periode)</label>
           <select 
             value={selectedFilter}
-            onChange={(e) => setSelectedFilter(e.target.value)}
-            className="bg-white border border-black px-3 py-2 text-sm font-bold w-64 focus:outline-none focus:ring-2 focus:ring-black"
+            onChange={(e) => {
+              setSelectedFilter(e.target.value);
+              if (e.target.value === "CUSTOM_DATE" && !customDate) setCustomDate(format(new Date(), "yyyy-MM-dd"));
+              if (e.target.value === "CUSTOM_MONTH" && !customMonth) setCustomMonth(format(new Date(), "yyyy-MM"));
+            }}
+            className="bg-white border border-black px-3 py-2 text-sm font-bold w-64 focus-ring cursor-pointer transition-swiss"
           >
             <option value="TODAY">Hari Ini</option>
             <option value="YESTERDAY">Kemarin</option>
-            <option value="CUSTOM_DATE">Tanggal Spesifik (Kalender)</option>
             <option value="THIS_MONTH">Bulan Ini</option>
+            <option value="CUSTOM_DATE">Tanggal Spesifik (Harian)</option>
+            <option value="CUSTOM_MONTH">Bulan Spesifik (Bulanan)</option>
             <option value="ALL">Semua Waktu (All Time)</option>
-            <optgroup label="Bulan Spesifik">
-              {monthYears.map(my => (
-                <option key={my} value={my}>{my}</option>
-              ))}
-            </optgroup>
           </select>
         </div>
         {selectedFilter === "CUSTOM_DATE" && (
-          <div>
+          <div className="animate-fade-in">
             <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Pilih Tanggal</label>
             <input 
               type="date"
-              className="bg-white border border-black px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-black"
+              className="bg-white border border-black px-3 py-2 text-sm font-bold focus-ring transition-swiss"
               value={customDate}
               onChange={(e) => setCustomDate(e.target.value)}
+            />
+          </div>
+        )}
+        {selectedFilter === "CUSTOM_MONTH" && (
+          <div className="animate-fade-in">
+            <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Pilih Bulan</label>
+            <input 
+              type="month"
+              className="bg-white border border-black px-3 py-2 text-sm font-bold focus-ring transition-swiss"
+              value={customMonth}
+              onChange={(e) => setCustomMonth(e.target.value)}
             />
           </div>
         )}
@@ -363,8 +373,8 @@ export default function ReportsPage() {
       {/* P&L DASHBOARD */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Modal Keluar */}
-        <div className="border border-black p-4 bg-white relative overflow-hidden group hover:bg-gray-50 transition-colors">
-          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+        <div className="border border-black p-4 bg-white relative overflow-hidden group hover:bg-gray-50 hover-elevate transition-swiss">
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2 group-hover:text-blue-600 transition-colors">
             <DollarSign className="w-4 h-4 text-blue-600" />
             Modal Keluar
           </div>
@@ -375,9 +385,9 @@ export default function ReportsPage() {
         </div>
         
         {/* Card 2: Keuntungan Bersih */}
-        <div className="border border-black p-4 bg-black text-white relative overflow-hidden group">
+        <div className="border border-black p-4 bg-black text-white relative overflow-hidden group hover-elevate transition-swiss">
           <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-green-400" />
+            <TrendingUp className="w-4 h-4 text-green-400 group-hover:animate-bounce" />
             Keuntungan Bersih
           </div>
           <div className="text-2xl font-black text-green-400">
@@ -387,8 +397,8 @@ export default function ReportsPage() {
         </div>
 
         {/* Card 3: Nilai Stok Mengendap */}
-        <div className="border border-black p-4 bg-white relative overflow-hidden group hover:bg-gray-50 transition-colors">
-          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+        <div className="border border-black p-4 bg-white relative overflow-hidden group hover:bg-gray-50 hover-elevate transition-swiss">
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2 group-hover:text-purple-600 transition-colors">
             <Package className="w-4 h-4 text-purple-600" />
             Sisa Nilai Stok (Aset)
           </div>
@@ -399,8 +409,8 @@ export default function ReportsPage() {
         </div>
 
         {/* Card 4: Potensi Keuntungan */}
-        <div className="border border-black p-4 bg-white relative overflow-hidden group hover:bg-gray-50 transition-colors">
-          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+        <div className="border border-black p-4 bg-white relative overflow-hidden group hover:bg-gray-50 hover-elevate transition-swiss">
+          <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2 group-hover:text-yellow-600 transition-colors">
             <PiggyBank className="w-4 h-4 text-yellow-600" />
             Potensi Keuntungan
           </div>
@@ -441,7 +451,7 @@ export default function ReportsPage() {
                 filteredTransactions.map((t) => {
                   const profit = t.type === 'OUT' ? (t.total_price - (t.quantity * (t.cost_price || 0))) : 0;
                   return (
-                    <tr key={t.id} className="hover:bg-gray-50 border-b border-gray-200">
+                    <tr key={t.id} className="hover:bg-gray-50 border-b border-gray-200 transition-swiss">
                       <td className="p-4">
                         {format(new Date(t.created_at), "dd MMM yyyy, HH:mm")}
                       </td>
@@ -477,7 +487,7 @@ export default function ReportsPage() {
                       <td className="p-4 text-center">
                         <button 
                           onClick={() => softDeleteTransaction(t.id)}
-                          className="text-gray-400 hover:text-red-600 transition-colors"
+                          className="text-gray-400 hover:text-red-600 transition-swiss active-press"
                           title="Buang ke Tong Sampah"
                         >
                           <Trash2 className="w-5 h-5 mx-auto" />
