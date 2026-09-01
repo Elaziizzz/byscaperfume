@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
@@ -539,7 +539,7 @@ export default function POSDashboard() {
                 materials.map((m) => (
                   <div key={m.id} className="border border-black p-4 flex flex-col justify-between bg-white hover-elevate transition-swiss group relative">
                     {m.current_stock <= 10 && (
-                      <span className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-1 py-0.5 animate-fade-in uppercase">⚠️ Low</span>
+                      <span className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-1 py-0.5 animate-fade-in uppercase">âš ï¸ Low</span>
                     )}
                     <div className="text-sm font-bold uppercase mb-2 truncate group-hover:text-blue-600 transition-colors" title={m.name}>{m.name}</div>
                     <div className="flex justify-between items-end">
@@ -558,3 +558,4 @@ export default function POSDashboard() {
     </div>
   );
 }
+
