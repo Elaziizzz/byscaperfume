@@ -1,13 +1,14 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
-import { FileText, Download, Calendar, Trash2, TrendingUp, DollarSign, Package, PiggyBank } from "lucide-react";
+import { FileText, Download, Calendar, Trash2, TrendingUp, DollarSign, Package, PiggyBank, PieChart as PieChartIcon } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { PieChart, Pie, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 // Removed getCookie
 
 type Transaction = {
@@ -131,12 +132,25 @@ export default function ReportsPage() {
   // Potential Profit = sum of (current_stock * (price - cost_price))
   const potentialProfit = materials.reduce((sum, m) => sum + (m.current_stock * (m.price - (m.cost_price || 0))), 0);
 
+  // Data for Pie Chart (Top Items Sold)
+  const pieDataMap: Record<string, number> = {};
+  outTransactions.forEach(t => {
+    const name = t.materials?.name || 'Unknown';
+    pieDataMap[name] = (pieDataMap[name] || 0) + t.quantity;
+  });
+  const pieData = Object.entries(pieDataMap)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5); // top 5
+  
+  const PIE_COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#9333ea'];
+
 
   const exportPDF = () => {
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
-    const storeName = activeStore === 'bysca' ? 'BYSCA (Parfum)' : 'Karya Bahan';
+    const storeName = 'Bysca Parfum';
     doc.text(`${storeName.toUpperCase()} - P&L Report`, 14, 22);
     
     doc.setFont("helvetica", "normal");
@@ -216,29 +230,81 @@ export default function ReportsPage() {
 
     // Define columns
     sheet.columns = [
-      { header: "Tanggal", key: "date", width: 22 },
-      { header: "Tipe", key: "type", width: 15 },
-      { header: "Material", key: "material", width: 30 },
-      { header: "Quantity", key: "qty", width: 12 },
-      { header: "H. Modal/Pcs (Rp)", key: "modal", width: 20 },
-      { header: "H. Jual/Pcs (Rp)", key: "jual", width: 20 },
-      { header: "Total Transaksi (Rp)", key: "total", width: 22 },
-      { header: "Profit (Rp)", key: "profit", width: 18 }
+      { key: "no", width: 6 },
+      { key: "date", width: 22 },
+      { key: "type", width: 15 },
+      { key: "material", width: 30 },
+      { key: "qty", width: 12 },
+      { key: "modal", width: 20 },
+      { key: "jual", width: 20 },
+      { key: "total", width: 22 },
+      { key: "profit", width: 18 }
     ];
 
-    // Style header row
-    const headerRow = sheet.getRow(1);
+    // Determine filter label
+    let filterLabel = selectedFilter;
+    if (selectedFilter === "TODAY") filterLabel = "Hari Ini";
+    else if (selectedFilter === "YESTERDAY") filterLabel = "Kemarin";
+    else if (selectedFilter === "THIS_MONTH") filterLabel = "Bulan Ini";
+    else if (selectedFilter === "CUSTOM_DATE") filterLabel = customDate ? format(new Date(customDate), "dd MMMM yyyy") : "Tanggal Spesifik";
+    else if (selectedFilter === "CUSTOM_MONTH") filterLabel = customMonth ? format(new Date(customMonth + "-01"), "MMMM yyyy") : "Bulan Spesifik";
+    else if (selectedFilter === "ALL") filterLabel = "Semua Waktu";
+
+    const printDate = format(new Date(), "dd MMM yyyy, HH:mm");
+
+    // Row 1: Title Row
+    const titleRow = sheet.addRow(["LAPORAN KEUANGAN - KARYA BAHAN"]);
+    sheet.mergeCells(1, 1, 1, 9);
+    titleRow.height = 30;
+    const titleCell = titleRow.getCell(1);
+    titleCell.font = { bold: true, size: 16 };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Row 2: Subtitle Row
+    const subtitleRow = sheet.addRow([`Periode: ${filterLabel}  |  Dicetak pada: ${printDate}`]);
+    sheet.mergeCells(2, 1, 2, 9);
+    subtitleRow.height = 20;
+    const subtitleCell = subtitleRow.getCell(1);
+    subtitleCell.font = { size: 10, color: { argb: "FF555555" } };
+    subtitleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Row 3: Empty row
+    sheet.addRow([]);
+
+    // Row 4: Header Row
+    const headerRow = sheet.addRow([
+      "No",
+      "Tanggal",
+      "Tipe",
+      "Material",
+      "Quantity",
+      "H. Modal/Pcs (Rp)",
+      "H. Jual/Pcs (Rp)",
+      "Total Transaksi (Rp)",
+      "Profit (Rp)"
+    ]);
+    headerRow.height = 24;
     headerRow.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: "FF000000" } };
       cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
     });
 
-    filteredTransactions.forEach(t => {
+    // Freeze panes up to header row
+    sheet.views = [{ state: 'frozen', ySplit: 4 }];
+
+    filteredTransactions.forEach((t, index) => {
       const profit = t.type === 'OUT' ? (t.total_price - (t.quantity * (t.cost_price || 0))) : 0;
       const isBeli = t.type === 'IN';
       
       const row = sheet.addRow({
+        no: index + 1,
         date: format(new Date(t.created_at), "yyyy-MM-dd HH:mm:ss"),
         type: isBeli ? 'BELI (IN)' : 'JUAL (OUT)',
         material: t.materials?.name || "Unknown",
@@ -249,6 +315,17 @@ export default function ReportsPage() {
         profit: isBeli ? "-" : profit
       });
 
+      // Alignments: dates left-aligned, numbers right-aligned, text left-aligned
+      row.getCell("no").alignment = { vertical: 'middle', horizontal: 'center' };
+      row.getCell("date").alignment = { vertical: 'middle', horizontal: 'left' };
+      row.getCell("type").alignment = { vertical: 'middle', horizontal: 'center' };
+      row.getCell("material").alignment = { vertical: 'middle', horizontal: 'left' };
+      row.getCell("qty").alignment = { vertical: 'middle', horizontal: 'right' };
+      row.getCell("modal").alignment = { vertical: 'middle', horizontal: 'right' };
+      row.getCell("jual").alignment = { vertical: 'middle', horizontal: 'right' };
+      row.getCell("total").alignment = { vertical: 'middle', horizontal: 'right' };
+      row.getCell("profit").alignment = { vertical: 'middle', horizontal: 'right' };
+
       // Styling based on type
       row.getCell("type").font = { color: { argb: isBeli ? "FF990000" : "FF006600" }, bold: true };
       
@@ -256,38 +333,84 @@ export default function ReportsPage() {
       row.getCell("total").font = { color: { argb: isBeli ? "FFCC0000" : "FF0000FF" }, bold: true };
       if (!isBeli) row.getCell("profit").font = { color: { argb: "FF009900" }, bold: true };
 
-      // Number formatting for currency columns
+      // Number formatting for currency and quantity columns
+      row.getCell("qty").numFmt = '#,##0';
       ['modal', 'jual', 'total', 'profit'].forEach(key => {
         const cell = row.getCell(key);
         if (typeof cell.value === 'number') {
           cell.numFmt = '#,##0';
         }
       });
+
+      // Borders on all cells and alternating row background color
+      for (let col = 1; col <= 9; col++) {
+        const cell = row.getCell(col);
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+        if (index % 2 === 1) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: "FFF5F5F5" }
+          };
+        }
+      }
     });
 
     // Add empty row for spacing
     sheet.addRow({});
 
     // Totals Section
-    const totalSalesRow = sheet.addRow({ qty: "TOTAL PENJUALAN", total: totalSalesRevenue });
-    totalSalesRow.getCell("qty").font = { bold: true };
+    const totalSalesRow = sheet.addRow({ material: "TOTAL PENJUALAN", total: totalSalesRevenue });
+    const modalKeluarRow = sheet.addRow({ material: "MODAL KELUAR", total: -costRecovered });
+    const profitRow = sheet.addRow({ material: "PROFIT BERSIH", profit: realizedProfit });
+    const totalBeliRow = sheet.addRow({ material: "TOTAL PEMBELIAN", total: -totalPurchaseCost });
+
+    const summaryRows = [totalSalesRow, modalKeluarRow, profitRow, totalBeliRow];
+
+    summaryRows.forEach((row, index) => {
+      // Gray background and borders for summary rows (thick top border on the first summary row)
+      for (let col = 1; col <= 9; col++) {
+        const cell = row.getCell(col);
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: "FFF0F0F0" }
+        };
+        cell.border = {
+          top: { style: index === 0 ? 'thick' : 'thin' },
+          bottom: { style: 'thin' },
+          left: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      }
+
+      // Merge label across material + qty columns (col 4 and 5)
+      sheet.mergeCells(row.number, 4, row.number, 5);
+      const labelCell = row.getCell("material");
+      labelCell.font = { bold: true };
+      labelCell.alignment = { vertical: 'middle', horizontal: 'right' };
+    });
+
     totalSalesRow.getCell("total").font = { bold: true, color: { argb: "FF0000FF" } };
     totalSalesRow.getCell("total").numFmt = '#,##0';
+    totalSalesRow.getCell("total").alignment = { vertical: 'middle', horizontal: 'right' };
 
-    const modalKeluarRow = sheet.addRow({ qty: "MODAL KELUAR", total: -costRecovered });
-    modalKeluarRow.getCell("qty").font = { bold: true };
     modalKeluarRow.getCell("total").font = { bold: true, color: { argb: "FFCC0000" } };
     modalKeluarRow.getCell("total").numFmt = '#,##0';
+    modalKeluarRow.getCell("total").alignment = { vertical: 'middle', horizontal: 'right' };
 
-    const profitRow = sheet.addRow({ qty: "PROFIT BERSIH", profit: realizedProfit });
-    profitRow.getCell("qty").font = { bold: true };
     profitRow.getCell("profit").font = { bold: true, color: { argb: "FF009900" } };
     profitRow.getCell("profit").numFmt = '#,##0';
+    profitRow.getCell("profit").alignment = { vertical: 'middle', horizontal: 'right' };
 
-    const totalBeliRow = sheet.addRow({ qty: "TOTAL PEMBELIAN", total: -totalPurchaseCost });
-    totalBeliRow.getCell("qty").font = { bold: true };
     totalBeliRow.getCell("total").font = { bold: true, color: { argb: "FFCC0000" } };
     totalBeliRow.getCell("total").numFmt = '#,##0';
+    totalBeliRow.getCell("total").alignment = { vertical: 'middle', horizontal: 'right' };
 
     // Generate and save
     const buffer = await workbook.xlsx.writeBuffer();
@@ -418,6 +541,34 @@ export default function ReportsPage() {
             +Rp {potentialProfit.toLocaleString("id-ID")}
           </div>
           <div className="text-[10px] text-gray-400 mt-2 uppercase">Bila semua sisa stok saat ini laku terjual</div>
+        </div>
+      </div>
+
+      {/* DASHBOARD CHARTS */}
+      <div className="grid grid-cols-1 gap-4">
+        <div className="border border-black p-4 bg-white hover-elevate transition-swiss">
+          <div className="text-sm font-bold text-black uppercase tracking-wider mb-4 flex items-center gap-2">
+            <PieChartIcon className="w-5 h-5" />
+            Grafik Produk Terlaris (Qty)
+          </div>
+          {pieData.length > 0 ? (
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#000000" label={(entry) => entry.name}>
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => [`${value} Pcs`, 'Terjual']} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+             <div className="h-64 w-full flex items-center justify-center text-gray-400 text-sm italic">
+               Belum ada data penjualan.
+             </div>
+          )}
         </div>
       </div>
 
