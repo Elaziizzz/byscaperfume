@@ -33,6 +33,7 @@ export function Sidebar() {
             </h1>
             <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Toko Parfum Premium
+              
             </div>
           </div>
 
