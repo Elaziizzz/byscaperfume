@@ -7,8 +7,8 @@ import { ToastProvider } from "@/components/ui/ToastProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "BYSCA - POS & Bookkeeping",
-  description: "Production-ready bookkeeping app for BYSCA store.",
+  title: "Bysca - POS & Bookkeeping",
+  description: "Production-ready bookkeeping app for Bysca material store.",
 };
 
 export default function RootLayout({
@@ -21,7 +21,7 @@ export default function RootLayout({
       <body className={`${inter.className} antialiased bg-[#f8f9fa] bg-[radial-gradient(#d1d5db_1px,transparent_1px)] [background-size:16px_16px] text-black flex flex-col md:flex-row min-h-screen animate-fade-in`}>
         <ToastProvider>
           <Sidebar />
-          <main className="flex-1 h-screen overflow-y-auto pb-20 md:pb-0">
+          <main className="flex-1 h-screen overflow-y-auto pb-20 md:pb-0 print:overflow-visible print:h-auto print:w-full">
             {children}
           </main>
         </ToastProvider>
@@ -29,4 +29,6 @@ export default function RootLayout({
     </html>
   );
 }
+
+
 
