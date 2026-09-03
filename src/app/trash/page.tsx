@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -69,6 +69,13 @@ export default function TrashPage() {
       alert("Error restore: " + error.message);
     } else {
       fetchAndCleanTrash(activeStore); // Refresh list
+      try {
+        fetch('/api/sheets/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'restore', payload: id, year: new Date().getFullYear().toString() })
+        }).catch(console.error);
+      } catch (e) { console.error(e); }
     }
   }
 

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
@@ -97,6 +97,13 @@ export default function ReportsPage() {
       alert("Error menghapus transaksi: " + error.message);
     } else {
       fetchData(activeStore);
+      try {
+        fetch('/api/sheets/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', payload: id, year: new Date().getFullYear().toString() })
+        }).catch(console.error);
+      } catch (e) { console.error(e); }
     }
   }
 
@@ -154,7 +161,7 @@ export default function ReportsPage() {
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
-    const storeName = 'Bysca Parfum';
+    const storeName = 'Karya Bahan';
     doc.text(`${storeName.toUpperCase()} - P&L Report`, 14, 22);
     
     doc.setFont("helvetica", "normal");
@@ -717,6 +724,7 @@ export default function ReportsPage() {
     </div>
   );
 }
+
 
 
 
