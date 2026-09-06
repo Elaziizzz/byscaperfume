@@ -26,7 +26,7 @@ export function Sidebar() {
       <aside className="print:hidden w-64 min-h-screen border-r border-black flex-col justify-between bg-white relative hidden md:flex transition-all duration-300">
         <div className="p-8 pb-4">
           <div className="mb-8 border-b-4 border-black pb-4">
-            <h1 className="text-3xl font-black tracking-tighter uppercase leading-tight mb-2 text-black break-words group cursor-default">BYSCA <span className="text-blue-600 transition-colors group-hover:text-black">JAYA PLAFON</span></h1><div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Toko Material & Bangunan</div>
+            <h1 className="text-3xl font-black tracking-tighter uppercase leading-tight mb-2 text-black break-words group cursor-default">BYSCA <span className="text-pink-600 transition-colors group-hover:text-black">PREMIUM PARFUM</span></h1><div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Toko Parfum Premium</div>
           </div>
 
           <nav className="flex flex-col gap-2">
@@ -79,6 +79,7 @@ export function Sidebar() {
     </>
   );
 }
+
 
 
 

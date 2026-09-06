@@ -54,7 +54,7 @@ export default function POSDashboard() {
   const [buyMode, setBuyMode] = useState<'ecer' | 'grosir'>('ecer');
   const [loading, setLoading] = useState(false);
 
-  const [activeStore] = useState<string>("bysca");
+  const [activeStore] = useState<string>("karya_bahan");
   const [searchQuery, setSearchQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { showToast } = useToast();
@@ -69,19 +69,19 @@ export default function POSDashboard() {
   const quantityInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchData("bysca");
+    fetchData("karya_bahan");
 
     const materialSubscription = supabase
       .channel("public:materials")
       .on("postgres_changes", { event: "*", schema: "public", table: "materials" }, () => {
-        fetchMaterials("bysca");
+        fetchMaterials("karya_bahan");
       })
       .subscribe();
 
     const transactionSubscription = supabase
       .channel("public:transactions")
       .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => {
-        fetchTransactions("bysca");
+        fetchTransactions("karya_bahan");
       })
       .subscribe();
 
@@ -261,17 +261,20 @@ export default function POSDashboard() {
             insertedData[idx]?.id || invoiceNo,
             format(now, "yyyy-MM-dd"),
             format(now, "HH:mm"),
-            activeStore === 'karya_bahan' ? 'Karya Bahan' : 'Bysca',
+            activeStore === 'bysca' ? 'Bysca' : 'Karya Bahan',
             'JUAL (OUT)',
             item.material.name.replace(/-\s*\[.*?\]$/, '').trim(),
             item.display_quantity + ' ' + item.display_unit,
             item.subtotal,
-            'âœ… VALID'
+            'Ã¢Å“â€¦ VALID'
           ]);
           fetch('/api/sheets/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'checkout', payload: sheetPayload, year })
+          }).then(res => res.json()).then(data => {
+            console.log('Sheets Sync Checkout:', data);
+            if (data.error) alert('Gagal Sinkronisasi Google Sheets: ' + data.error);
           }).catch(console.error);
         } catch (e) {
           console.error(e);
@@ -390,10 +393,9 @@ export default function POSDashboard() {
             <div className="text-black font-mono print:font-mono w-full text-[11px] leading-relaxed">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-lg tracking-widest">{activeStore === 'karya_bahan' ? 'KARYA BAHAN' : 'BYSCA'}</h2>
-                  <p className="mt-4">Nama   : Cash</p>
-                  <p>Alamat : -</p>
-                  <p>Telepon: -</p>
+                  <h2 className="text-lg tracking-widest">{activeStore === 'bysca' ? 'BYSCA' : 'KARYA BAHAN JAYA PLAVON'}</h2>
+                  <p className="mt-4">Alamat : {activeStore === 'bysca' ? '-' : 'Jl.Raya Barat No.6 Kasturi Cikijing,Majalengka'}</p>
+                  <p>Telepon: {activeStore === 'bysca' ? '-' : '081323299754 / 085722328871'}</p>
                   <p>Sales  : Admin</p>
                 </div>
                 <div className="text-center">
@@ -749,6 +751,8 @@ export default function POSDashboard() {
     </div>
   );
 }
+
+
 
 
 
