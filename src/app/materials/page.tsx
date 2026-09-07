@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
@@ -150,7 +150,7 @@ export default function MaterialsPage() {
         {
           name: finalName,
           code: formData.code || null,
-          current_stock: Number(formData.current_stock),
+          current_stock: 0, // Set to 0, trigger will update it via transaction
           cost_price: Number(formData.cost_price),
           price: Number(formData.price),
           store: activeStore,
@@ -746,7 +746,7 @@ export default function MaterialsPage() {
                 <td className="p-4 border-r border-gray-200 font-bold group-hover:text-blue-600 transition-colors">{item.name}</td>
                 <td className="p-4 border-r border-gray-200 text-right font-mono">
                   <span className={`${item.current_stock <= 10 ? 'text-red-600 bg-red-50 px-2 py-1 font-bold' : ''}`}>
-                    {item.current_stock} {item.current_stock <= 10 && 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â'}
+                    {item.current_stock} {item.current_stock <= 10 && 'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â'}
                   </span>
                 </td>
                 <td className="p-4 border-r border-gray-200 text-right font-mono text-gray-600">
@@ -789,6 +789,7 @@ export default function MaterialsPage() {
     </div>
   );
 }
+
 
 
 
