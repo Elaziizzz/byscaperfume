@@ -56,7 +56,7 @@ export default function POSDashboard() {
   const [buyMode, setBuyMode] = useState<'ecer' | 'grosir'>('ecer');
   const [loading, setLoading] = useState(false);
 
-  const [activeStore] = useState<string>("karya_bahan");
+  const [activeStore] = useState<string>("bysca");
   const [searchQuery, setSearchQuery] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { showToast } = useToast();
@@ -71,19 +71,19 @@ export default function POSDashboard() {
   const quantityInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchData("karya_bahan");
+    fetchData("bysca");
 
     const materialSubscription = supabase
       .channel("public:materials")
       .on("postgres_changes", { event: "*", schema: "public", table: "materials" }, () => {
-        fetchMaterials("karya_bahan");
+        fetchMaterials("bysca");
       })
       .subscribe();
 
     const transactionSubscription = supabase
       .channel("public:transactions")
       .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => {
-        fetchTransactions("karya_bahan");
+        fetchTransactions("bysca");
       })
       .subscribe();
 
@@ -260,17 +260,21 @@ export default function POSDashboard() {
       if (insertedData) {
         try {
           const year = now.getFullYear().toString();
-          const sheetPayload = cart.map((item, idx) => [
-            insertedData[idx]?.id || invoiceNo,
+          // Group everything into ONE Nota row for Spreadsheet
+          const notaItemsText = cart.map(item => `${item.display_quantity} ${item.display_unit} ${item.material.name.replace(/-\s*\[.*?\]$/, '').trim()}`).join(', ');
+          const grandTotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
+          
+          const sheetPayload = [[
+            invoiceNo, // Kita pakai invoiceNo sebagai ID utamanya di Spreadsheet
             format(now, "yyyy-MM-dd"),
             format(now, "HH:mm"),
             activeStore === 'bysca' ? 'Bysca' : 'Karya Bahan',
-            'JUAL (OUT)',
-            item.material.name.replace(/-\s*\[.*?\]$/, '').trim(),
-            item.display_quantity + ' ' + item.display_unit,
-            item.subtotal,
-            'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ VALID'
-          ]);
+            'JUAL (OUT) - NOTA',
+            notaItemsText,
+            '1 Nota',
+            grandTotal,
+            '? VALID'
+          ]];
           fetch('/api/sheets/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
